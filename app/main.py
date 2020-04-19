@@ -29,8 +29,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
 # MongoDB
@@ -108,7 +108,7 @@ class Examination(BaseModel):
 def read_root():
     return {"Hello": "MAD"}
 
-@app.get("/patients/", status_code=HTTP_200_OK)
+@app.get("/patients", status_code=HTTP_200_OK)
 async def read_patients(skip: int = 0, limit: int = 10):
     patients: List[Patient] = []
     patient_docs = db.patients.find({})
@@ -126,7 +126,7 @@ async def read_patient(id: str, status_code=HTTP_200_OK):
     patient.id = id
     return patient
 
-@app.post("/patients/", status_code=HTTP_201_CREATED)
+@app.post("/patients", status_code=HTTP_201_CREATED)
 async def create_patient(patient: Patient, response: Response, request: Request):
     patient_doc = patient.dict()
     _ = patient_doc.pop('id', None)
