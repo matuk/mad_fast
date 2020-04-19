@@ -151,7 +151,7 @@ async def deleate_patient(id: str, status_code=HTTP_200_OK):
     _ = await db.patients.delete_one({'_id': ObjectId(id)})
     return None
 
-@app.post("/examinations/", status_code=HTTP_201_CREATED)
+@app.post("/examinations", status_code=HTTP_201_CREATED)
 async def create_examination(examination: Examination, response: Response, request: Request):
     examination_doc = examination.dict()
     _ = examination_doc.pop('id', None)
@@ -178,7 +178,7 @@ async def update_examination(id: str, examination: Examination, response: Respon
     examination.id = id
     return examination
 
-@app.get("/examinations/", status_code=HTTP_200_OK)
+@app.get("/examinations", status_code=HTTP_200_OK)
 async def read_examinations(skip: int = 0, limit: int = 10):
     examinations: List[Examination] = []
     examination_docs = db.examinations.find({})
@@ -203,7 +203,7 @@ async def deleate_examination(id: str, status_code=HTTP_200_OK):
     
 
 ## Combined
-@app.get("/patients/{pid}/examinations/")
+@app.get("/patients/{pid}/examinations")
 async def read_examinations_for_patient(pid: str, skip: int = 0, limit: int = 10):
     examinations: List[Examination] = []
     examination_docs = db.examinations.find({'patient_id': pid})
