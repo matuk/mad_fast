@@ -22,6 +22,7 @@ import json
 app = FastAPI()
 
 # Middleware
+# Korrektur
 # origins = ["http://localhost:8080"]
 origins = ['*']
 
