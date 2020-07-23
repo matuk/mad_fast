@@ -80,6 +80,7 @@ class Premedication(BaseModel):
     respiratory_diseases: List[str] = []
     visceral_diseases: List[str] = []
     neuro_diseases: List[str] = []
+    comment: str = None
 
 
 class Anesthesia(BaseModel):
