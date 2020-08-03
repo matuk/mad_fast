@@ -232,6 +232,7 @@ async def read_examinations_with_filter(
     if state:
         query.update({'state': state})
     if planned_date:
+        planned_date = dt.datetime.combine(planned_date, dt.time.min)
         query.update({'planned_examination_date': planned_date})
     if mandant:
         query.update({'md_mandant': mandant})
