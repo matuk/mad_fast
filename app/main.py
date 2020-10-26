@@ -23,28 +23,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 fake_users_db = {
-    "johndoe": {
-        "username": "johndoe",
-        "full_name": "John Doe",
-        "hashed_password": "$2b$12$eHIwtf7wuVaklDqjFED33O0LL.SRbr2YADwygdvtOjVHNZ6rdOKMK",
+    "user": {
+        "username": "user",
+        "full_name": "Normal User",
+        "hashed_password": "$2b$12$M.OFe2GqlWWX4jVnPaiOne8aRsdB01wHcXTbGxSx4YVhW7Ys/iH5a",
         "disabled": False,
     },
-    "alice": {
-        "username": "alice",
-        "full_name": "Alice Wonderson",
-        "hashed_password": "$2b$12$eHIwtf7wuVaklDqjFED33O0LL.SRbr2YADwygdvtOjVHNZ6rdOKMK",
-        "disabled": True,
-    },
-    "bob": {
-        "username": "bob",
-        "full_name": "Bob Beamon",
-        "hashed_password": "$2b$12$eHIwtf7wuVaklDqjFED33O0LL.SRbr2YADwygdvtOjVHNZ6rdOKMK",
-        "disabled": False,
-    },
-    "h": {
-        "username": "h",
-        "full_name": "HH",
-        "hashed_password": "$2b$12$20ASVXgsw.Y68iTPfWC0AePmz.Imbm0I5kjr7OZgl4UaqUCkb/X66",
+    "admin": {
+        "username": "admin",
+        "full_name": "Admin User",
+        "hashed_password": "$2b$12$hjWq/IPeMOtL3zj1lZL0GOhUUC6lsCuN/BxYxM2B7WMouQkip0jPm",
         "disabled": False,
         "isAdmin": True
     },
@@ -119,8 +107,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        logger.info(payload)
         username = payload.get('sub')
+        logger.info(username)
         if username is None:
+            logger.info("Username is None")
             raise credentials_exception
         token_data = TokenData(username=username)
         logger.info("token_data")
@@ -179,6 +170,10 @@ class Patient(BaseModel):
     health_insurance: str = None
     asa_class: int = None
 
+class MDIntervention(BaseModel):
+    id: str = None
+    name: str = None
+
 
 # Examination Model
 class Vital(BaseModel):
@@ -187,6 +182,13 @@ class Vital(BaseModel):
     value: float
     unit: str
 
+class PatientHeight(BaseModel):
+    value: int = None
+    unit: str = None
+
+class PatientWeight(BaseModel):
+    value: int = None
+    unit: str = None
 
 class DocItem(BaseModel):
     time_stamp: dt.datetime = None
@@ -194,8 +196,8 @@ class DocItem(BaseModel):
 
 
 class Premedication(BaseModel):
-    patient_height: int = None
-    patient_weight: int = None
+    patient_height: PatientHeight = PatientHeight()
+    patient_weight: PatientWeight = PatientWeight()
     patient_bmi: float = None
     has_allergies: bool = None
     allergies: List[str] = []
@@ -240,13 +242,12 @@ class Examination(BaseModel):
     last_name: str
     first_name: str
     date_of_birth: dt.datetime
-    encounter_id: str = None
     state: str = None
     planned_examination_date: dt.datetime
     examination_date: dt.datetime = None
     tz_info: str
     examination_types: List[str] = []
-    md_mandant: str
+    md_intervention: str
     health_insurance: str = None
     premedication: Premedication = Premedication()
     anesthesia: Anesthesia = Anesthesia()
@@ -285,6 +286,13 @@ def read_root():
     logger.info("Hello asldkfh")
     return {"Hello": "MAD"}
 
+@app.get("/mdintervention")
+async def read_mds_intervention():
+    mds: List[MDIntervention] = []
+    mds_docs = db.mdintervention.find({})
+    async for row in mds_docs:
+        mds.append(row['name'])
+    return mds
 
 @app.get("/patients", status_code=status.HTTP_200_OK)
 async def read_patients(skip: int = 0, limit: int = 10):
@@ -386,6 +394,8 @@ async def read_examinations_with_filter(
     query = {}
     if state:
         query.update({'state': state})
+    else:
+        query.update({'state': {'$in': ['planned', 'started']}})
     if planned_date:
         planned_date = dt.datetime.combine(planned_date, dt.time.min)
         query.update({'planned_examination_date': planned_date})
@@ -494,7 +504,7 @@ def create_examination_from_csv(patient_id, ex: dict):
     new_ex['planned_examination_date'] = dt.datetime.strptime(
         ex['Untersuchungsdatum'], '%d.%m.%Y')
     new_ex['tz_info'] = 'Europe/Zurich'
-    new_ex['md_mandant'] = ex['Mandant']
+    new_ex['md_intervention'] = ex['Mandant']
     ex_types = []
     if (ex['Terminvorgaben'] == 'Gastro'):
         ex_types.append('Gastroskopie')
@@ -522,6 +532,13 @@ async def upsert_patient(query: dict, patient_doc: dict):
         return_document=ReturnDocument.AFTER)
     return result
 
+async def upsert_md_intervention(query: dict, md_intervention_doc: dict):
+    result = await db.mdintervention.find_one_and_update(
+        filter=query,
+        update={'$set': md_intervention_doc},
+        upsert=True,
+        return_document=ReturnDocument.AFTER)
+    return result
 
 async def upsert_examination(query: dict, examination_doc: dict):
     result = await db.examinations.find_one_and_update(
@@ -568,11 +585,14 @@ async def upload_file(file: UploadFile = File(...)):
                     exclude={'id', 'date_of_birth_str', 'asa_class'})
                 logger.info('Patient update: %s', patient_data)
                 patient_after = await upsert_patient(patient_identifier, patient_data)
+                res = await upsert_md_intervention({'name': ex.Mandant}, {'name': ex.Mandant})
+                logger.info('MKLog: Update der MDs')
+                logger.info(res)
                 ex_data = create_examination_from_csv(
                     str(patient_after['_id']), ex.to_dict())
                 examination = Examination(**ex_data)
                 examination_identifier = examination.dict(
-                    include={'patient_id', 'encounter_id'})
+                    include={'patient_id', 'planned_examination_date'})
                 examination_data = examination.dict(exclude={'id'})
                 logger.info('Examination update: %s', examination_data)
                 _ = await upsert_examination(examination_identifier, examination_data)
