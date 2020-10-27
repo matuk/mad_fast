@@ -151,8 +151,8 @@ app.add_middleware(
 
 
 # MongoDB
-client = AsyncIOMotorClient('mongodb://localhost:27017')
-#client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
+#client = AsyncIOMotorClient('mongodb://localhost:27017')
+client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
 db = client['madDB']
 #collection = db.patients
 
