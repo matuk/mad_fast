@@ -1,5 +1,8 @@
 from fastapi import FastAPI, Body, File, UploadFile, Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 import datetime as dt
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -16,6 +19,9 @@ import time
 from io import BytesIO
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from pyppeteer import launch
+from ftplib import FTP
+import pytz
 
 SECRET_KEY = "cd492135aa1dbb8cbc7caa5353be6a37fa4f12ab4a1f6be15f278e2bb419ac98"
 ALGORITHM = "HS256"
@@ -49,7 +55,8 @@ class TokenData(BaseModel):
 
 
 class User(BaseModel):
-    username: str
+    id: Optional[str] = None
+    username: Optional[str] = None
     full_name: Optional[str] = None
     disabled: Optional[bool] = None
     isAdmin: Optional[bool] = None
@@ -135,6 +142,10 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 app = FastAPI()
 logger = logging.getLogger("gunicorn.error")
 
+# Templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
 
 # Middleware
 # Korrektur
@@ -154,7 +165,6 @@ app.add_middleware(
 #client = AsyncIOMotorClient('mongodb://localhost:27017')
 client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
 db = client['madDB']
-#collection = db.patients
 
 # Models
 
@@ -177,7 +187,7 @@ class MDIntervention(BaseModel):
 
 # Examination Model
 class Vital(BaseModel):
-    time_stamp: str
+    time_stamp: dt.datetime = None
     vital_type: str
     value: float
     unit: str
@@ -254,7 +264,14 @@ class Examination(BaseModel):
     postmedication: Postmedication = Postmedication()
 
 
+
 # Routes
+
+@app.get("/")
+def read_root():
+    logger.info("Hello asldkfh")
+    return {"Hello": "MAD"}
+
 # @app.post("/token", response_model=Token) #Damit kann ich die response einschränken, damit nur das Token-Objekt zurückgeliefert wird.
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -279,12 +296,92 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 async def read_own_items(current_user: User = Security(get_current_active_user, scopes=['items'])):
     return [{"item_id": "Foo", "owner": current_user.username}]
 
+@app.get("/users", status_code=status.HTTP_200_OK)
+async def get_users():
+    users: List[User] = []
+    users_list = db.users.find({})
+    async for row in users_list:
+        user = User(**row)
+        user.id = str(row["_id"])
+        users.append(user)
+    return(users)
 
 
-@app.get("/")
-def read_root():
-    logger.info("Hello asldkfh")
-    return {"Hello": "MAD"}
+def get_mad_report_filename(examination):
+    file_name = examination.examination_date.strftime('%Y%m%d_%H%M')
+    file_name = file_name + '_' + examination.last_name + '_' + examination.first_name + '_' + examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
+    return file_name
+
+# def get_template(template_name: str):
+#     root = os.path.dirname(os.path.abspath(__file__))
+#     templates_dir = os.path.join(root, 'templates')
+#     env = Environment( loader=FileSystemLoader(templates_dir) )
+#     return env.get_template(template_name)
+
+@app.get("/examination_report/{id}")
+async def generate_examination_report(request: Request, id: str):
+    try:
+        object_id = ObjectId(id)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Object ID not valid")
+    examination_doc = await db.examinations.find_one({'_id': object_id})
+    utc_tz = pytz.timezone('UTC')
+    local_tz = pytz.timezone(examination_doc['tz_info'])
+    items = [ {'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']} for item in examination_doc['anesthesia']['doc_items'] ]
+    examination_doc['anesthesia']['doc_items'] = items
+    examination = Examination(**examination_doc)
+    examination.id = id
+    return templates.TemplateResponse("index.html", {"request": request, "examination": examination})
+    
+    
+    
+    
+@app.put("/examinations/generate_pdf/{id}")
+async def generate_pdf_api(request: Request, id: str):
+    try:
+        object_id = ObjectId(id)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Object ID not valid")
+    examination_doc = await db.examinations.find_one({'_id': object_id})
+    examination = Examination(**examination_doc)
+    examination.id = id
+    _ = await generate_pdf_report(examination)
+    return "Success"
+ 
+async def generate_pdf_report(examination):
+    url = 'http://127.0.0.1:8000/examination_report/' + examination.id
+    logger.info(url)
+    browser = await launch()
+    page = await browser.newPage()
+    # await page.setContent(h)
+    await page.goto(url, {'waitUntil': 'networkidle0'})
+    file_name = get_mad_report_filename(examination)
+    file_path = "./archiv/" + file_name
+    await page.pdf({'format': 'A4', 'path': file_path})
+    await browser.close()
+    with FTP('ftp.netzone.ch', 'arboras.ch6', 'winterhorn19') as ftp, open(file_path, 'rb') as file:
+        ftp.storbinary(f'STOR {file_name}', file)
+    return url
+
+
+
+
+# @app.get("/examination_report_1/{id}")
+# async def generate_examination_report_1(id: str):
+#     template = get_template('index.html')
+#     html_str = template.render({'id': id})
+#     logger.info(html_str)
+#     browser = await launch()
+#     page = await browser.newPage()
+#     await page.setContent(html_str)
+#     await page.pdf({'format': 'A4', 'path': get_mad_report_filename()})
+#     await browser.close()
+
+
+
+
 
 @app.get("/mdintervention")
 async def read_mds_intervention():
@@ -509,9 +606,9 @@ def create_examination_from_csv(patient_id, ex: dict):
     if (ex['Terminvorgaben'] == 'Gastro'):
         ex_types.append('Gastroskopie')
     elif (ex['Terminvorgaben'] == 'Kolo'):
-        ex_types.append('Koloskopie')
+        ex_types.append('Kolonoskopie')
     elif (ex['Terminvorgaben'] == 'Doppeldecker'):
-        ex_types.extend(['Gastroskopie', 'Koloskopie'])
+        ex_types.extend(['Gastroskopie', 'Kolonoskopie'])
     elif (ex['Terminvorgaben'] == 'Rekto'):
         ex_types.append('Rektoskopie')
     new_ex['examination_types'] = ex_types
@@ -604,3 +701,75 @@ async def upload_file(file: UploadFile = File(...)):
     except:
         raise HTTPException(
             status_code=422, detail="csv file cannot be imported")
+
+
+class MKDateTest(BaseModel):
+    id: str = None
+    ts: dt.datetime
+    comment: str = None
+
+    class Config:
+        json_encoders = {
+            dt.datetime: lambda v: v.isoformat()[:-3]+'Z'
+        }
+
+@app.post("/datetest")
+async def set_date(mk_datetest: MKDateTest, response: Response, request: Request):
+    logger.info('Test Date: %s', mk_datetest)
+    datetest = mk_datetest.dict()
+    logger.info('Test Date: %s', datetest)
+    result = await db.datetest.replace_one({"id": mk_datetest.id}, datetest, upsert=True)
+    # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
+    response.headers.update({"location": str(request.url) + str(result.upserted_id)})
+    logger.info('Result: %s', result)
+    logger.info('Raw_Result: %s', result.raw_result)
+    result = await db.datetest.find_one({"id": mk_datetest.id})
+    datetest_check = MKDateTest(**result)
+    logger.info('datatest check: %s', datetest_check)
+    return datetest_check
+
+@app.get("/datetest/{id}")
+async def get_date(response: Response, request: Request, id: str):
+    logger.info('ID: %s', id)
+    result = await db.datetest.find_one({"id": id})
+    datetest = MKDateTest(**result)
+    # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
+    logger.info('Result: %s', result)
+    logger.info('MKDateTest: %s', datetest)
+    # logger.info(datetest.ts.isoformat()[:-3]+'Z')
+    # datetest.ts = datetest.ts.isoformat()[:-3]+'Z'
+    return datetest
+
+
+@app.post("/datesimulation")
+async def set_dates(response: Response, request: Request):
+    d1 = {
+        'id': '101',
+        'ts': dt.datetime.utcnow(),
+        'comment': 'utcnow'
+    }
+    _ = await db.datetest.replace_one({"id": d1['id']}, d1, upsert=True)
+    d2 = {
+        'id': '102',
+        'ts': dt.datetime.now(),
+        'comment': 'now()'
+    }
+    _ = await db.datetest.replace_one({"id": d2['id']}, d2, upsert=True)
+    # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
+    zurich = pytz.timezone('Europe/Zurich')
+    aware_datetime = zurich.localize(dt.datetime.now())
+    d3 = {
+        'id': '103',
+        'ts': aware_datetime,
+        'comment': 'tz aware zurich / now()'
+    }
+    _ = await db.datetest.replace_one({"id": d3['id']}, d3, upsert=True)
+    aware_datetime = zurich.localize(dt.datetime.utcnow())
+    d4 = {
+        'id': '104',
+        'ts': aware_datetime,
+        'comment': 'tz aware zurich / utcnow()'
+    }
+    _ = await db.datetest.replace_one({"id": d4['id']}, d4, upsert=True)
+
+    return "success"

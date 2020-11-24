@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAD2 Anästhesieprotokoll</title>
+    <link href="{{ url_for('static', path='/bootstrap.min.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container my-3">
+        <div class="row">
+            <div class="col-md-3 align-self-center text-left">
+                <img src="{{ url_for('static', path='/iconmad2.png') }}" width="100" alt="">
+            </div>
+            <div class="col-md-6 align-self-center text-center">
+                <h2>MAD2 Protokoll</h2>
+            </div>
+            <div class="col-md-3 align-self-center text-right">
+                <p>{{examination.examination_date.strftime('%d.%m.%Y')}}</p>
+            </div>
+        </div>
+    </div>
+    <div class="container my-3">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card text-left">
+                    <h5 class="card-header">
+                        Prämedikation
+                    </h5>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong> {{ examination.last_name }}, {{ examination.first_name}} </strong>({{examination.date_of_birth.strftime('%d.%m.%Y')}})
+                        </p>                    
+                        <p class="card-text">
+                            <strong>Untersuchungen:</strong>
+                            {{ ', '.join(examination.examination_types)}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Arzt:</strong>
+                            {{ examination.md_intervention or 'Kein Eintrag'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Nüchternheit (6h):</strong>
+                            {{ 'Ja' if examination.premedication.has_empty_stomach else 'Nein'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Allergien:</strong>
+                            {{ ', '.join(examination.premedication.allergies) or 'Keine'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>ASA Klasse:</strong>
+                            {{ examination.premedication.asa_class or 'Kein Eintrag'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Medikation:</strong>
+                            {{ ', '.join(examination.premedication.medication) or 'Keine'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Herzkrankheiten:</strong>
+                            {{ ', '.join(examination.premedication.cardio_diseases) or 'Keine'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Atemwegserkrankungen:</strong>
+                            {{ ', '.join(examination.premedication.respiratory_diseases) or 'Keine'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Viszerale Erkrankungen:</strong>
+                            {{ ', '.join(examination.premedication.visceral_diseases) or 'Keine'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Neuronale Erkrankungen:</strong>
+                            {{ ', '.join(examination.premedication.neuro_diseases) or 'Keine'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Kommentar:</strong>
+                            {{ examination.premedication.comment or 'Kein Eintrag'}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card text-left">
+                    <h5 class="card-header">
+                        Anästhesie-Protokoll
+                    </h5>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>
+                                Anästhesist/in:
+                            </strong>
+                            {{ examination.anesthesia.md_name or 'Kein Eintrag'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Pflegefachperson:</strong>
+                            {{ examination.anesthesia.nurse_name or 'Kein Eintrag'}}
+                        </p>
+                        <table class="table table-sm text-left ">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Uhrzeit</th>
+                                    <th scope="col">Eintrag</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in examination.anesthesia.doc_items %}
+                                <tr>
+                                    <td class="py-0">{{item.time_stamp.strftime('%H:%M')}}</td>
+                                    <td class="py-0">{{item.text}}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <p class="card-text">
+                            <strong>Interventionsdauer:</strong>
+                            {{ examination.anesthesia.intervention_duration }}
+                        </p>
+                        <p class="card-text">
+                            <strong>Anästhesiedauer:</strong>
+                            {{ examination.anesthesia.anesthesia_duration }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container my-3">
+        <div class="card text-left">
+            <h5 class="card-header">
+                Postmedikation und Leistungserfassung
+            </h5>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 text-left">
+                        <p class="card-text">
+                            <strong>Patient hat problemlos getrunken:</strong>
+                            {{ 'Ja' if examination.postmedication.drink else 'Nein'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Patient wird begleitet:</strong>
+                            {{ 'Ja' if examination.postmedication.accompanied else 'Nein'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Gehen ohne Hilfe möglich:</strong>
+                            {{ 'Ja' if examination.postmedication.walking else 'Nein'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Patient über Probleme und Verhalten zu Hause informiert:</strong>
+                            {{ 'Ja' if examination.postmedication.informed else 'Nein'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Kontaktinformationen für den Notfall erhalten:</strong>
+                            {{ 'Ja' if examination.postmedication.contact_info else 'Nein'}}
+                        </p>
+                    </div>
+                    <div class="col-md-6 text-left">
+                        <p class="card-text">
+                            <strong>Leistungserfassung:</strong>
+                            {{ examination.postmedication.service_recording or 'Kein Eintrag'}}
+                        </p>
+                        <p class="card-text">
+                            <strong>Speziell verwendete Medikamente:</strong>
+                            {{ ', '.join(examination.postmedication.special_med) or 'Keine'}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container my-3">
+        <div class="card">
+            <div class="card-body py-0">
+                <div class="card-text text-right">
+                        <small>Medical Documentation Powered by MAD2. All Rights Reserved.</small>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
