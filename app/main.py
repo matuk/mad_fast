@@ -351,6 +351,7 @@ async def generate_pdf_api(request: Request, id: str):
     return "Success"
  
 async def generate_pdf_report(examination):
+    # url = 'http://127.0.0.1:8000/examination_report/' + examination.id
     url = 'http://127.0.0.1/examination_report/' + examination.id
     logger.info(url)
     browser = await launch()
