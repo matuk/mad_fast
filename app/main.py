@@ -162,8 +162,8 @@ app.add_middleware(
 
 
 # MongoDB
-#client = AsyncIOMotorClient('mongodb://localhost:27017')
-client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
+client = AsyncIOMotorClient('mongodb://localhost:27017')
+#client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
 db = client['madDB']
 
 # Models
@@ -351,15 +351,19 @@ async def generate_pdf_api(request: Request, id: str):
     return "Success"
  
 async def generate_pdf_report(examination):
-    url = 'http://127.0.0.1:8000/examination_report/' + examination.id
+    url = 'http://127.0.0.1/examination_report/' + examination.id
     logger.info(url)
     browser = await launch()
     page = await browser.newPage()
     # await page.setContent(h)
+    logger.info('MK: Browser bereit, jetzt url aufrufen')
     await page.goto(url, {'waitUntil': 'networkidle0'})
+    logger.info('MK: Seite aufgerufen')
     file_name = get_mad_report_filename(examination)
-    file_path = "./archiv/" + file_name
+    file_path = "./archive/" + file_name
     await page.pdf({'format': 'A4', 'path': file_path})
+    logger.info('MK: Seiter gespeichert unter:')
+    logger.info(file_path)
     await browser.close()
     with FTP('ftp.netzone.ch', 'arboras.ch6', 'winterhorn19') as ftp, open(file_path, 'rb') as file:
         ftp.storbinary(f'STOR {file_name}', file)
