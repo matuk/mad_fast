@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Body, File, UploadFile, Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -22,6 +22,10 @@ from passlib.context import CryptContext
 from pyppeteer import launch
 from ftplib import FTP
 import pytz
+from os import listdir
+from os.path import isfile, join
+import glob
+import os
 
 SECRET_KEY = "cd492135aa1dbb8cbc7caa5353be6a37fa4f12ab4a1f6be15f278e2bb419ac98"
 ALGORITHM = "HS256"
@@ -351,9 +355,10 @@ async def generate_pdf_api(request: Request, id: str):
     return "Success"
  
 async def generate_pdf_report(examination):
-    #url = 'http://127.0.0.1:8000/examination_report/' + examination.id
+    # url = 'http://127.0.0.1:8000/examination_report/' + examination.id
     url = 'http://127.0.0.1/examination_report/' + examination.id
     logger.info(url)
+    # browser = await launch()
     browser = await launch(executablePath='/usr/bin/google-chrome-stable', headless=True, args=['--no-sandbox'])
     page = await browser.newPage()
     # await page.setContent(h)
@@ -366,8 +371,8 @@ async def generate_pdf_report(examination):
     logger.info('MK: Seiter gespeichert unter:')
     logger.info(file_path)
     await browser.close()
-    with FTP('ftp.netzone.ch', 'arboras.ch6', 'winterhorn19') as ftp, open(file_path, 'rb') as file:
-        ftp.storbinary(f'STOR {file_name}', file)
+    #with FTP('ftp.netzone.ch', 'arboras.ch6', '***') as ftp, open(file_path, 'rb') as file:
+    #    ftp.storbinary(f'STOR {file_name}', file)
     return url
 
 
@@ -778,3 +783,34 @@ async def set_dates(response: Response, request: Request):
     _ = await db.datetest.replace_one({"id": d4['id']}, d4, upsert=True)
 
     return "success"
+
+
+#app.mount("/archive", StaticFiles(directory="archive"), name="archive")
+
+@app.get("/archive_old")
+async def archive_old():
+    path = './archive/'
+    files = [f for f in listdir(path) if isfile(join(path, f))]
+    logger.info(files)
+    return files
+
+@app.get("/get_archived_reports")
+async def get_archived_reports():
+    pattern = './archive/*.pdf'
+    files = glob.glob(pattern)
+    #files = [os.path.basename(x) for x in glob.glob(pattern)]
+    logger.info(files)
+    files_list = [{'filename': os.path.basename(file)} for file in files]
+    logger.info(files_list)
+    return files_list
+
+@app.get("/get_archived_report/{filename}")
+async def get_archived_report(filename: str):
+    logger.info(filename)
+    filepath = os.path.join('./archive/', filename)
+    logger.info(filepath)
+    return FileResponse(filepath)
+
+@app.get("/testfile")
+async def testfile():
+    return FileResponse('./archive/20201124_1331_Rot_Rolf_29-03-1982.pdf')
