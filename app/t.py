@@ -2,7 +2,7 @@ import asyncio
 from pyppeteer import launch
 
 async def main():
-    browser = await launch(executablePath='/usr/bin/google-chrome-stable', headless=True, args=['--no-sandbox']headless=True, args=['--no-sandbox'])
+    browser = await launch(executablePath='/usr/bin/google-chrome-stable', headless=True, args=['--no-sandbox'])
     page = await browser.newPage()
     await page.goto('https://example.com')
     await page.screenshot({'path': './archive/example.png'})

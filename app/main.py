@@ -104,7 +104,7 @@ def create_access_token(data: dict, expires_delta: Optional[dt.timedelta] = None
     if expires_delta:
         expire = dt.datetime.utcnow() + expires_delta
     else:
-        expire = dt.datetime.utcnow() + dt.timedelta(minutes=15)
+        expire = dt.datetime.utcnow() + dt.timedelta(minutes=240)
     to_encode.update({'exp': expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -166,8 +166,9 @@ app.add_middleware(
 
 
 # MongoDB
+client = AsyncIOMotorClient('mongodb://mad-database-service')
 #client = AsyncIOMotorClient('mongodb://localhost:27017')
-client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
+#client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
 db = client['madDB']
 
 # Models
@@ -355,11 +356,11 @@ async def generate_pdf_api(request: Request, id: str):
     return "Success"
  
 async def generate_pdf_report(examination):
-    # url = 'http://127.0.0.1:8000/examination_report/' + examination.id
+    #url = 'http://127.0.0.1:8000/examination_report/' + examination.id
     url = 'http://127.0.0.1/examination_report/' + examination.id
     logger.info(url)
-    # browser = await launch()
-    browser = await launch(executablePath='/usr/bin/google-chrome-stable', headless=True, args=['--no-sandbox'])
+    browser = await launch()
+    #browser = await launch(executablePath='/usr/bin/google-chrome-stable', headless=True, args=['--no-sandbox'])
     page = await browser.newPage()
     # await page.setContent(h)
     logger.info('MK: Browser bereit, jetzt url aufrufen')
