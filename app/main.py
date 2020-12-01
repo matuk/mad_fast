@@ -615,6 +615,11 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex['Untersuchungsdatum'], '%d.%m.%Y')
     new_ex['tz_info'] = 'Europe/Zurich'
     new_ex['md_intervention'] = ex['Mandant']
+    # new_ex['postmedication']['drink'] = True
+    # new_ex['postmedication']['accompanied'] = True
+    # new_ex['postmedication']['walking'] = True
+    # new_ex['postmedication']['informed'] = True
+    # new_ex['postmedication']['contact_info'] = True
     ex_types = []
     if (ex['Terminvorgaben'] == 'Gastro'):
         ex_types.append('Gastroskopie')
