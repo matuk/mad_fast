@@ -20,7 +20,6 @@ from io import BytesIO
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pyppeteer import launch
-from ftplib import FTP
 import pytz
 from os import listdir
 from os.path import isfile, join
@@ -118,15 +117,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        logger.info(payload)
         username = payload.get('sub')
-        logger.info(username)
         if username is None:
-            logger.info("Username is None")
             raise credentials_exception
         token_data = TokenData(username=username)
-        logger.info("token_data")
-        logger.info(token_data)
     except (JWTError):
         raise credentials_exception
     user = get_user(fake_users_db, username=token_data.username)
@@ -209,6 +203,11 @@ class DocItem(BaseModel):
     time_stamp: dt.datetime = None
     text: str = None
 
+    # class Config:
+    #      json_encoders = {
+    #          dt.datetime: lambda v: v.replace(tzinfo=pytz.UTC),
+    #      }
+
 
 class Premedication(BaseModel):
     patient_height: PatientHeight = PatientHeight()
@@ -267,6 +266,11 @@ class Examination(BaseModel):
     premedication: Premedication = Premedication()
     anesthesia: Anesthesia = Anesthesia()
     postmedication: Postmedication = Postmedication()
+    
+
+
+
+    
 
 
 
@@ -274,7 +278,6 @@ class Examination(BaseModel):
 
 @app.get("/")
 def read_root():
-    logger.info("Hello asldkfh")
     return {"Hello": "MAD"}
 
 # @app.post("/token", response_model=Token) #Damit kann ich die response einschränken, damit nur das Token-Objekt zurückgeliefert wird.
@@ -372,8 +375,6 @@ async def generate_pdf_report(examination):
     logger.info('MK: Seiter gespeichert unter:')
     logger.info(file_path)
     await browser.close()
-    #with FTP('ftp.netzone.ch', 'arboras.ch6', '***') as ftp, open(file_path, 'rb') as file:
-    #    ftp.storbinary(f'STOR {file_name}', file)
     return url
 
 
@@ -474,12 +475,12 @@ async def create_examination(examination: Examination, response: Response, reque
 async def update_examination(id: str, examination: Examination, response: Response, request: Request):
     examination_doc = examination.dict()
     _ = examination_doc.pop('id', None)
-    print("Examination Update vor dem Aufruf von mongodb:")
-    print(examination_doc)
     #examination_doc['examination_date'] = dt.datetime.combine(examination_doc['examination_date'], dt.time.min)
     await db.examinations.replace_one({"_id": ObjectId(id)}, examination_doc)
     response.headers.update({"location": str(request.url)})
     examination.id = id
+    for item in examination.anesthesia.doc_items:
+        item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
 
 
@@ -554,7 +555,8 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
     examination_doc = await db.examinations.find_one({'_id': object_id})
     examination = Examination(**examination_doc)
     examination.id = id
-    logger.info(examination)
+    for item in examination.anesthesia.doc_items:
+        item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
 
 
@@ -666,15 +668,8 @@ def get_date_frequency_from_count(count):
 
 @app.post("/upload_file")
 async def upload_file(file: UploadFile = File(...)):
-    logger.info('Filename: ' + file.filename)
     data = await file.read()
-    logger.info(data)
-    logger.info(type(data))
-    logger.info(data.decode('iso-8859-1'))
     data_decoded = data.decode('iso-8859-1')
-    logger.info(type(data_decoded))
-    logger.info("---------")
-    # logger.info(BytesIO(bytes(data_decoded, encoding='utf-8'))
     try:
         df = pd.read_csv(
             BytesIO(bytes(data_decoded, encoding='utf-8')), sep=';')
@@ -684,7 +679,6 @@ async def upload_file(file: UploadFile = File(...)):
             df = df.rename(columns={c: c.strip()})
         for _, ex in df.iterrows():
             if (ex.Terminvorgaben in ['Kolo', 'Gastro', 'Doppeldecker', 'Rekto']):
-                logger.info(ex.to_dict()['Untersuchungsdatum'])
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
                     patient.date_of_birth_str, '%d.%m.%Y')
