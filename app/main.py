@@ -25,6 +25,7 @@ from os import listdir
 from os.path import isfile, join
 import glob
 import os
+from urllib.parse import quote_plus
 
 SECRET_KEY = "cd492135aa1dbb8cbc7caa5353be6a37fa4f12ab4a1f6be15f278e2bb419ac98"
 ALGORITHM = "HS256"
@@ -162,7 +163,17 @@ app.add_middleware(
 # MongoDB
 #client = AsyncIOMotorClient('mongodb://mad-database-service')
 #client = AsyncIOMotorClient('mongodb://localhost:27017')
-client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
+#client = AsyncIOMotorClient("mongodb+srv://m001-student:veoDg30XNh0owoPa@sandbox-ealv9.mongodb.net/madDB?retryWrites=true&w=majority")
+
+db_user = os.environ.get('DB_USER')
+db_password = os.environ.get('DB_PASSWORD')
+db_service = os.environ.get('DB_SERVICE')
+
+uri = "mongodb://%s:%s@%s" % (
+    quote_plus(db_user), quote_plus(db_password), db_service)
+
+client = AsyncIOMotorClient(uri)
+
 db = client['madDB']
 
 # Models
@@ -370,7 +381,7 @@ async def generate_pdf_report(examination):
     await page.goto(url, {'waitUntil': 'networkidle0'})
     logger.info('MK: Seite aufgerufen')
     file_name = get_mad_report_filename(examination)
-    file_path = "./archive/" + file_name
+    file_path = "../pdf_archive/" + file_name
     await page.pdf({'format': 'A4', 'path': file_path})
     logger.info('MK: Seiter gespeichert unter:')
     logger.info(file_path)
@@ -787,16 +798,16 @@ async def set_dates(response: Response, request: Request):
 
 #app.mount("/archive", StaticFiles(directory="archive"), name="archive")
 
-@app.get("/archive_old")
-async def archive_old():
-    path = './archive/'
-    files = [f for f in listdir(path) if isfile(join(path, f))]
-    logger.info(files)
-    return files
+# @app.get("/archive_old")
+# async def archive_old():
+#     path = './archive/'
+#     files = [f for f in listdir(path) if isfile(join(path, f))]
+#     logger.info(files)
+#     return files
 
 @app.get("/get_archived_reports")
 async def get_archived_reports():
-    pattern = './archive/*.pdf'
+    pattern = '../pdf_archive/*.pdf'
     files = glob.glob(pattern)
     #files = [os.path.basename(x) for x in glob.glob(pattern)]
     logger.info(files)
@@ -807,10 +818,10 @@ async def get_archived_reports():
 @app.get("/get_archived_report/{filename}")
 async def get_archived_report(filename: str):
     logger.info(filename)
-    filepath = os.path.join('./archive/', filename)
+    filepath = os.path.join('../pdf_archive/', filename)
     logger.info(filepath)
     return FileResponse(filepath)
 
 @app.get("/testfile")
 async def testfile():
-    return FileResponse('./archive/20201124_1331_Rot_Rolf_29-03-1982.pdf')
+    return FileResponse('../pdf_archive/test_file.txt')
