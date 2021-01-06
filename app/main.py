@@ -170,10 +170,11 @@ logger.info(f'Browser path: {browser_path}')
 
 db_user = os.environ.get('DB_USER')
 db_password = os.environ.get('DB_PASSWORD')
+db_protocol = os.environ.get('DB_PROTOCOL')
 db_service = os.environ.get('DB_SERVICE')
 
-uri = "mongodb://%s:%s@%s" % (
-    quote_plus(db_user), quote_plus(db_password), db_service)
+uri = "%s://%s:%s@%s" % (
+    quote_plus(db_protocol), quote_plus(db_user), quote_plus(db_password), db_service)
 
 logger.info(f'MongoDB: {uri}')
 
