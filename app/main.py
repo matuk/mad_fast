@@ -174,7 +174,7 @@ db_protocol = os.environ.get('DB_PROTOCOL')
 db_service = os.environ.get('DB_SERVICE')
 
 uri = "%s://%s:%s@%s" % (
-    quote_plus(db_protocol), quote_plus(db_user), quote_plus(db_password), db_service)
+    db_protocol, quote_plus(db_user), quote_plus(db_password), db_service)
 
 logger.info(f'MongoDB: {uri}')
 
