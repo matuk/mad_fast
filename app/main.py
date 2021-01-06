@@ -159,6 +159,9 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
+# Browser location for pdf generation
+browser_path = os.environ.get('BROWSER_PATH')
+logger.info(f'Browser path: {browser_path}')
 
 # MongoDB
 #client = AsyncIOMotorClient('mongodb://mad-database-service')
@@ -171,6 +174,8 @@ db_service = os.environ.get('DB_SERVICE')
 
 uri = "mongodb://%s:%s@%s" % (
     quote_plus(db_user), quote_plus(db_password), db_service)
+
+logger.info(f'MongoDB: {uri}')
 
 client = AsyncIOMotorClient(uri)
 
@@ -370,13 +375,13 @@ async def generate_pdf_api(request: Request, id: str):
     return "Success"
  
 async def generate_pdf_report(examination):
-    #url = 'http://127.0.0.1:8000/examination_report/' + examination.id
-    url = 'http://127.0.0.1/examination_report/' + examination.id
-    logger.info(url)
-    #browser = await launch()
-    browser = await launch(executablePath='/usr/bin/google-chrome-stable', headless=True, args=['--no-sandbox'])
+    if browser_path == None: # Local dev environment on mac
+        url = 'http://127.0.0.1:8000/examination_report/' + examination.id
+        browser = await launch()
+    else: # all docker environments with env variable BROWSER_PATH
+        url = 'http://127.0.0.1/examination_report/' + examination.id
+        browser = await launch(executablePath=browser_path, headless=True, args=['--no-sandbox'])
     page = await browser.newPage()
-    # await page.setContent(h)
     logger.info('MK: Browser bereit, jetzt url aufrufen')
     await page.goto(url, {'waitUntil': 'networkidle0'})
     logger.info('MK: Seite aufgerufen')
@@ -387,21 +392,6 @@ async def generate_pdf_report(examination):
     logger.info(file_path)
     await browser.close()
     return url
-
-
-
-
-# @app.get("/examination_report_1/{id}")
-# async def generate_examination_report_1(id: str):
-#     template = get_template('index.html')
-#     html_str = template.render({'id': id})
-#     logger.info(html_str)
-#     browser = await launch()
-#     page = await browser.newPage()
-#     await page.setContent(html_str)
-#     await page.pdf({'format': 'A4', 'path': get_mad_report_filename()})
-#     await browser.close()
-
 
 
 
