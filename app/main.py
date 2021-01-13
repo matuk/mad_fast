@@ -481,9 +481,70 @@ async def update_examination(id: str, examination: Examination, response: Respon
     await db.examinations.replace_one({"_id": ObjectId(id)}, examination_doc)
     response.headers.update({"location": str(request.url)})
     examination.id = id
+    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
+
+@app.put("/examinations/{id}/start", status_code=status.HTTP_200_OK)
+async def start_examination(id: str, response: Response, request: Request):
+    message = {}
+    # read examination from MongoDB
+    try:
+        object_id = ObjectId(id)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Object ID not valid")
+    examination_doc = await db.examinations.find_one({'_id': object_id})
+    examination = Examination(**examination_doc)
+    examination.id = id
+    # set default values for newly started examination
+    if examination.state == "planned":
+        examination.state = "started"
+        examination.examination_date = dt.datetime.now(dt.timezone.utc)  # Jetzt inkl. Zeit
+        #examination.patient_age = int((dt.datetime.combine(dt.datetime.now(), dt.time.min) - examination.date_of_birth).days // 365.2425)
+        examination.postmedication.drink = True
+        examination.postmedication.accompanied = True
+        examination.postmedication.walking = True
+        examination.postmedication.informed = True
+        examination.postmedication.contact_info = True
+        # try to find the last completed examination for same patient
+        last_examination = None
+        last_examination_cursor = db.examinations.find({
+                'aesqulap_pid': examination_doc['aesqulap_pid'],
+                'state': 'completed'
+                }).sort([('examination_date', -1)]).limit(1)
+        async for doc in last_examination_cursor:
+            last_examination = Examination(**doc)
+        if last_examination:
+            logger.info(last_examination)
+            # Hier alle Informationen kopieren
+            examination.premedication.patient_height = last_examination.premedication.patient_height
+            examination.premedication.patient_weight = last_examination.premedication.patient_weight
+            examination.premedication.has_allergies = last_examination.premedication.has_allergies
+            examination.premedication.allergies = last_examination.premedication.allergies
+            examination.premedication.asa_class = last_examination.premedication.asa_class
+            examination.premedication.medication = last_examination.premedication.medication
+            examination.premedication.cardio_diseases = last_examination.premedication.cardio_diseases
+            examination.premedication.respiratory_diseases = last_examination.premedication.respiratory_diseases
+            examination.premedication.visceral_diseases = last_examination.premedication.visceral_diseases
+            examination.premedication.neuro_diseases = last_examination.premedication.neuro_diseases
+            examination.premedication.comment = last_examination.premedication.comment
+            message['code'] = 'premed_copied'
+            date_loc = pytz.utc.localize(last_examination.examination_date).astimezone(pytz.timezone(last_examination.tz_info))
+            message['text'] = f"Prämedikationsdaten kopiert von der Untersuchung vom {date_loc.strftime('%d.%m.%Y %H:%M')} für {examination.first_name} {examination.last_name}."
+        else:
+            logger.info('MKLog: Keine bestehende Examination gefunden.')
+            message['code'] = 'premed_not_copied'
+            message['text'] = ''
+        # Update of examination in MongoDB
+        updated_examination_doc = examination.dict()
+        await db.examinations.replace_one({"_id": ObjectId(id)}, updated_examination_doc)
+        
+    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    response.headers.update({"location": str(request.url)})
+   
+    return { 'examination': examination, 'message': message }
 
 
 @app.get("/examinations", status_code=status.HTTP_200_OK)
@@ -557,6 +618,7 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
     examination_doc = await db.examinations.find_one({'_id': object_id})
     examination = Examination(**examination_doc)
     examination.id = id
+    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
@@ -785,6 +847,12 @@ async def set_dates(response: Response, request: Request):
     _ = await db.datetest.replace_one({"id": d4['id']}, d4, upsert=True)
 
     return "success"
+
+@app.get("/sleep", status_code=status.HTTP_200_OK)
+def sleep(delta: int, response: Response, request: Request):
+    time.sleep(delta)
+    t1 = dt.datetime.now(dt.timezone.utc)
+    return {'delta': delta, 'message': {'code': 'code1', 'text': f'{delta} Sekunden geschlafen'}, 'utc_time': t1}
 
 
 #app.mount("/archive", StaticFiles(directory="archive"), name="archive")
