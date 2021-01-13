@@ -540,8 +540,8 @@ async def start_examination(id: str, response: Response, request: Request):
         # Update of examination in MongoDB
         updated_examination_doc = examination.dict()
         await db.examinations.replace_one({"_id": ObjectId(id)}, updated_examination_doc)
-        
-    # examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    if examination.examination_date is not None:
+        examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     response.headers.update({"location": str(request.url)})
    
     return { 'examination': examination, 'message': message }
@@ -618,7 +618,8 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
     examination_doc = await db.examinations.find_one({'_id': object_id})
     examination = Examination(**examination_doc)
     examination.id = id
-    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    if examination.examination_date is not None:
+        examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
