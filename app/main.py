@@ -541,7 +541,7 @@ async def start_examination(id: str, response: Response, request: Request):
         updated_examination_doc = examination.dict()
         await db.examinations.replace_one({"_id": ObjectId(id)}, updated_examination_doc)
         
-    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    # examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     response.headers.update({"location": str(request.url)})
    
     return { 'examination': examination, 'message': message }
