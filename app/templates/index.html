@@ -30,7 +30,11 @@
                     <div class="card-body">
                         <p class="card-text">
                             <strong> {{ examination.last_name }}, {{ examination.first_name}} </strong>({{examination.date_of_birth.strftime('%d.%m.%Y')}})
-                        </p>                    
+                        </p>
+                        <p class="card-text">
+                            <strong>PID:</strong>
+                            {{ examination.aesqulap_pid }}
+                        </p>                  
                         <p class="card-text">
                             <strong>Untersuchungen:</strong>
                             {{ ', '.join(examination.examination_types)}}

@@ -333,8 +333,9 @@ async def get_users():
 
 
 def get_mad_report_filename(examination):
-    file_name = examination.examination_date.strftime('%Y%m%d_%H%M')
-    file_name = file_name + '_' + examination.last_name + '_' + examination.first_name + '_' + examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
+    file_name = "Anaesthesieprotokoll_"
+    file_name = file_name + examination.examination_date.strftime('%Y%m%d_%H%M')
+    file_name = file_name + '_' + examination.aesqulap_pid + '_' + examination.last_name + '_' + examination.first_name + '_' + examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
     return file_name
 
 # def get_template(template_name: str):
@@ -540,7 +541,8 @@ async def start_examination(id: str, response: Response, request: Request):
         # Update of examination in MongoDB
         updated_examination_doc = examination.dict()
         await db.examinations.replace_one({"_id": ObjectId(id)}, updated_examination_doc)
-    if examination.examination_date is not None:
+    
+    if examination.examination_date is not None: 
         examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     response.headers.update({"location": str(request.url)})
    
@@ -618,7 +620,7 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
     examination_doc = await db.examinations.find_one({'_id': object_id})
     examination = Examination(**examination_doc)
     examination.id = id
-    if examination.examination_date is not None:
+    if examination.examination_date is not None: 
         examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
