@@ -44,7 +44,7 @@ fake_users_db = {
         "full_name": "Admin User",
         "hashed_password": "$2b$12$hjWq/IPeMOtL3zj1lZL0GOhUUC6lsCuN/BxYxM2B7WMouQkip0jPm",
         "disabled": False,
-        "isAdmin": True
+        "is_admin": True
     },
 }
 
@@ -59,15 +59,35 @@ class TokenData(BaseModel):
 
 
 class User(BaseModel):
-    id: Optional[str] = None
-    username: Optional[str] = None
-    full_name: Optional[str] = None
-    disabled: Optional[bool] = None
-    isAdmin: Optional[bool] = None
+    username: str
+    last_name: Optional[str] = None
+    first_name: Optional[str] = None
+    password: Optional[str] = None
+    job_title: Optional[str] = None
+    display_in_select: Optional[str] = None
+    disabled: Optional[bool] = False
+    is_admin: Optional[bool] = False
+    in_select_md: Optional[bool] = False
+    in_select_ana: Optional[bool] = False
+    in_select_nurse: Optional[bool] = False
 
+class UserIn(User):
+    id: Optional[str] = None
+    
+
+class UserOut(User):
+    id: Optional[str] = None
+    
 
 class UserInDB(User):
     hashed_password: str
+
+class UserSelect(BaseModel):
+    username: str = Field(None, alias='value')
+    display_in_select: Optional[str] = Field(None, alias='text')
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 # Security
@@ -89,9 +109,22 @@ def get_user(db, username: str):
         user_dict = db[username]
         return UserInDB(**user_dict)
 
+async def get_user_db(username: str):
+    user_db_dict = await db.users.find_one({'username': username})
+    user_db = UserInDB(**user_db_dict)
+    return user_db
+
 
 def authenticate_user(db, username: str, password: str):
     user = get_user(db, username)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+async def authenticate_user_db(username: str, password: str):
+    user = await get_user_db(username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -124,7 +157,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         token_data = TokenData(username=username)
     except (JWTError):
         raise credentials_exception
-    user = get_user(fake_users_db, username=token_data.username)
+    #user = get_user(fake_users_db, username=token_data.username)
+    user = await get_user_db(username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -135,6 +169,7 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
     return current_user
+
 
 
 # FastAPI
@@ -300,8 +335,8 @@ def read_root():
 # @app.post("/token", response_model=Token) #Damit kann ich die response einschränken, damit nur das Token-Objekt zurückgeliefert wird.
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(
-        fake_users_db, form_data.username, form_data.password)
+    #user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = await authenticate_user_db(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
@@ -321,15 +356,122 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 async def read_own_items(current_user: User = Security(get_current_active_user, scopes=['items'])):
     return [{"item_id": "Foo", "owner": current_user.username}]
 
-@app.get("/users", status_code=status.HTTP_200_OK)
+@app.get("/users", status_code=status.HTTP_200_OK, response_model=List[UserOut])
 async def get_users():
-    users: List[User] = []
+    users: List[UserOut] = []
     users_list = db.users.find({})
     async for row in users_list:
-        user = User(**row)
+        user = UserOut(**row)
         user.id = str(row["_id"])
         users.append(user)
-    return(users)
+    return users
+
+@app.get("/users/{id}")
+async def get_user_from_db(id: str, status_code=status.HTTP_200_OK, response_model=UserOut):
+    time.sleep(0.5)
+    try:
+        object_id = ObjectId(id)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Object ID not valid")
+    user_db_dict = await db.users.find_one({'_id': object_id})
+    try:
+        user_out = UserOut(**user_db_dict)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+    user_out.id = id
+    return user_out
+
+@app.get("/users/byname/{username}")
+async def get_user_byname(username: str, status_code=status.HTTP_200_OK, response_model=UserOut):
+    user_db_dict = await db.users.find_one({'username': username})
+    try:
+        user_out = UserOut(**user_db_dict)
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Object not found")
+    user_out.id = str(user_db_dict['_id'])
+    return user_out
+
+@app.get("/users/isunique/{username}")
+async def check_username_unique(username: str, status_code=status.HTTP_200_OK):
+    user_db_dict = await db.users.find_one({'username': username})
+    return (user_db_dict == None)
+
+@app.get("/users/notme/{username}")
+async def check_username_isnotme(username: str, status_code=status.HTTP_200_OK):
+    logger.info(username)
+    return (username != "matuk")
+    
+
+async def upsert_user(query: dict, user_doc: dict):
+    result = await db.users.find_one_and_update(
+        filter=query,
+        update={'$set': user_doc},
+        upsert=True,
+        return_document=ReturnDocument.AFTER)
+    return result
+
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=UserOut)
+async def create_user(user_in: UserIn, response: Response, request: Request):
+    user_in_dict = user_in.dict()
+    _ = user_in_dict.pop('id', None)
+    #user_doc['hashed_password'] = get_password_hash(user_in.password)
+    user_db = UserInDB(**user_in_dict, hashed_password = get_password_hash(user_in.password))
+    user_identifier = user_in.dict(include={'username'})
+    user_updated = await upsert_user(user_identifier, user_db.dict())
+    user_updated['id'] = str(user_updated['_id'])
+    response.headers.update({"location": str(request.url) + str(user_updated['_id'])})
+    return user_updated
+
+@app.post("/useradmin", status_code=status.HTTP_201_CREATED, response_model=UserOut)
+async def create_admin(response: Response, request: Request):
+    user_dict = {'username': 'admin', 'password': 'admin', 'is_admin': True}
+    user_db = UserInDB(**user_dict, hashed_password = get_password_hash(user_dict['password']))
+    user_identifier = {'username': 'admin'}
+    user_updated = await upsert_user(user_identifier, user_db.dict())
+    user_updated['id'] = str(user_updated['_id'])
+    response.headers.update({"location": str(request.url) + str(user_updated['_id'])})
+    return user_updated
+
+@app.put("/users/{id}", status_code=status.HTTP_200_OK, response_model=UserOut  )
+async def update_user(id: str, user_in: UserIn, response: Response, request: Request):
+    user_in_dict = user_in.dict()
+    _ = user_in_dict.pop('id', None)
+    user_db = UserInDB(**user_in_dict, hashed_password = get_password_hash(user_in.password)) 
+    user_identifier = user_in.dict(include={'username'})
+    user_updated = await upsert_user(user_identifier, user_db.dict())
+    user_updated['id'] = str(user_updated['_id'])
+    response.headers.update({"location": str(request.url) + str(user_updated['_id'])})
+    return user_updated
+
+
+@app.delete("/users/{id}")
+async def deleate_user(id: str, status_code=status.HTTP_200_OK):
+    _ = await db.users.delete_one({'_id': ObjectId(id)})
+    return None
+
+
+@app.get("/optionsnurse", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
+async def get_users_select_nurse():
+    users: List[UserSelect] = []
+    users_list = db.users.find({'job_title': 'nurse'})
+    async for row in users_list:
+        user = UserSelect(**row)
+        if user.display_in_select:
+            users.append(user)
+    return users
+
+@app.get("/optionsana", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
+async def get_users_select_ana():
+    users: List[UserSelect] = []
+    users_list = db.users.find({'job_title': 'md'})
+    async for row in users_list:
+        user = UserSelect(**row)
+        if user.display_in_select:
+            users.append(user)
+    return users
 
 
 def get_mad_report_filename(examination):
@@ -405,6 +547,8 @@ async def read_mds_intervention():
     async for row in mds_docs:
         mds.append(row['name'])
     return mds
+
+
 
 @app.get("/patients", status_code=status.HTTP_200_OK)
 async def read_patients(skip: int = 0, limit: int = 10):
