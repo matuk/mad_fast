@@ -368,7 +368,6 @@ async def get_users():
 
 @app.get("/users/{id}")
 async def get_user_from_db(id: str, status_code=status.HTTP_200_OK, response_model=UserOut):
-    time.sleep(0.5)
     try:
         object_id = ObjectId(id)
     except:
