@@ -26,6 +26,7 @@ from os.path import isfile, join
 import glob
 import os
 from urllib.parse import quote_plus
+from webdav3.client import Client
 
 SECRET_KEY = "cd492135aa1dbb8cbc7caa5353be6a37fa4f12ab4a1f6be15f278e2bb419ac98"
 ALGORITHM = "HS256"
@@ -67,7 +68,6 @@ class User(BaseModel):
     display_in_select: Optional[str] = None
     disabled: Optional[bool] = False
     is_admin: Optional[bool] = False
-    in_select_md: Optional[bool] = False
     in_select_ana: Optional[bool] = False
     in_select_nurse: Optional[bool] = False
 
@@ -216,6 +216,16 @@ logger.info(f'MongoDB: {uri}')
 client = AsyncIOMotorClient(uri)
 
 db = client['madDB']
+
+# WebDAV
+webdav_options = {
+ 'webdav_hostname': 'http://localhost:7000',
+ 'webdav_login': os.environ.get('DAV_USER'),
+ 'webdav_password': os.environ.get('DAV_PASSWORD')
+}
+
+webdav_client = Client(webdav_options)
+webdav_client.verify = False # To not check SSL certificates (Default = True)
 
 # Models
 
@@ -475,8 +485,8 @@ async def get_users_select_ana():
 
 def get_mad_report_filename(examination):
     file_name = "Anaesthesieprotokoll_"
-    file_name = file_name + examination.examination_date.strftime('%Y%m%d_%H%M')
-    file_name = file_name + '_' + examination.aesqulap_pid + '_' + examination.last_name + '_' + examination.first_name + '_' + examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
+    file_name = file_name.strip() + examination.examination_date.strftime('%Y%m%d_%H%M')
+    file_name = file_name.strip() + '_' + examination.aesqulap_pid.strip() + '_' + examination.last_name.strip() + '_' + examination.first_name.strip() + '_' + examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
     return file_name
 
 # def get_template(template_name: str):
@@ -534,6 +544,10 @@ async def generate_pdf_report(examination):
     logger.info('MK: Seiter gespeichert unter:')
     logger.info(file_path)
     await browser.close()
+    #webdav
+    dir_name = examination.examination_date.strftime('%Y%m%d')
+    webdav_client.mkdir(f"/{dir_name}")
+    webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
     return url
 
 
@@ -918,6 +932,25 @@ async def upload_file(file: UploadFile = File(...)):
                 count[examination_data['planned_examination_date']] += 1
         date_frequency, total_count = get_date_frequency_from_count(count)
         return {'Planned examinations': date_frequency, 'Total count': total_count}
+    except:
+        raise HTTPException(
+            status_code=422, detail="csv file cannot be imported")
+
+@app.post("/upload_users")
+async def upload_users(file: UploadFile = File(...)):
+    data = await file.read()
+    data_decoded = data.decode('iso-8859-1')
+    try:
+        df = pd.read_csv(
+            BytesIO(bytes(data_decoded, encoding='utf-8')), sep=',')
+        # delete leading and trailing white space in column names
+        for c in df.columns:
+            df = df.rename(columns={c: c.strip()})
+        for _, user_dict in df.iterrows():
+            user_db = UserInDB(**user_dict, hashed_password = get_password_hash(user_dict['password']))
+            user_identifier = {'username': user_dict['username']}
+            _ = await upsert_user(user_identifier, user_db.dict())
+        return 'Users created'
     except:
         raise HTTPException(
             status_code=422, detail="csv file cannot be imported")
