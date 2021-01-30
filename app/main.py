@@ -218,8 +218,15 @@ client = AsyncIOMotorClient(uri)
 db = client['madDB']
 
 # WebDAV
+dav_service = os.environ.get('DAV_SERVICE')
+dav_port = os.environ.get('DAV_PORT')
+dav_hostname = "http://%s:%s" % (
+    quote_plus(dav_service), dav_port)
+
+logger.info(f'WebDAV: {dav_hostname}')
+
 webdav_options = {
- 'webdav_hostname': 'http://localhost:7000',
+ 'webdav_hostname': dav_hostname,
  'webdav_login': os.environ.get('DAV_USER'),
  'webdav_password': os.environ.get('DAV_PASSWORD')
 }
@@ -545,9 +552,9 @@ async def generate_pdf_report(examination):
     logger.info(file_path)
     await browser.close()
     #webdav
-    # dir_name = examination.examination_date.strftime('%Y%m%d')
-    # webdav_client.mkdir(f"/{dir_name}")
-    # webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
+    dir_name = examination.examination_date.strftime('%Y%m%d')
+    webdav_client.mkdir(f"/{dir_name}")
+    webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
     return url
 
 
