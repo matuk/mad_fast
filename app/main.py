@@ -545,9 +545,9 @@ async def generate_pdf_report(examination):
     logger.info(file_path)
     await browser.close()
     #webdav
-    dir_name = examination.examination_date.strftime('%Y%m%d')
-    webdav_client.mkdir(f"/{dir_name}")
-    webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
+    # dir_name = examination.examination_date.strftime('%Y%m%d')
+    # webdav_client.mkdir(f"/{dir_name}")
+    # webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
     return url
 
 
