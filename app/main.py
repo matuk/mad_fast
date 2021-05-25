@@ -10,7 +10,7 @@ from starlette.responses import Response
 from starlette.requests import Request
 from starlette.middleware.cors import CORSMiddleware
 from bson.objectid import ObjectId
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument, errors
 from typing import List, Optional
 import json
 import pandas as pd
@@ -111,8 +111,11 @@ def get_user(db, username: str):
 
 async def get_user_db(username: str):
     user_db_dict = await db.users.find_one({'username': username})
-    user_db = UserInDB(**user_db_dict)
-    return user_db
+    if user_db_dict:
+        user_db = UserInDB(**user_db_dict)
+        return user_db
+    else:
+        return None
 
 
 def authenticate_user(db, username: str, password: str):
@@ -353,7 +356,13 @@ def read_root():
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     #user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-    user = await authenticate_user_db(form_data.username, form_data.password)
+    try:
+        user = await authenticate_user_db(form_data.username, form_data.password)
+    except errors.ServerSelectionTimeoutError:
+        logger.info(f'MongoDB not available.')
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Database unavailable", headers={"WWW-Authenticate": "Bearer"})
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
@@ -362,7 +371,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User is disabled", headers={"WWW-Authenticate": "Bearer"})
     access_token_expires = dt.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token( data={"sub": user.username}, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer", "user": user}
+    return {"access_token": access_token, "token_type": "bearer", "expires_in": access_token_expires, "user": user}
 
 
 @app.get("/users/me", response_model=User)
@@ -472,7 +481,7 @@ async def deleate_user(id: str, status_code=status.HTTP_200_OK):
 @app.get("/optionsnurse", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
 async def get_users_select_nurse():
     users: List[UserSelect] = []
-    users_list = db.users.find({'job_title': 'nurse'})
+    users_list = db.users.find({'job_title': 'Pflege'})
     async for row in users_list:
         user = UserSelect(**row)
         if user.display_in_select:
@@ -482,7 +491,7 @@ async def get_users_select_nurse():
 @app.get("/optionsana", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
 async def get_users_select_ana():
     users: List[UserSelect] = []
-    users_list = db.users.find({'job_title': 'md'})
+    users_list = db.users.find({'job_title': 'Arzt'})
     async for row in users_list:
         user = UserSelect(**row)
         if user.display_in_select:
@@ -535,6 +544,7 @@ async def generate_pdf_api(request: Request, id: str):
     return "Success"
  
 async def generate_pdf_report(examination):
+    logger.info('MK: Browserpath: ' + str(browser_path))
     if browser_path == None: # Local dev environment on mac
         url = 'http://127.0.0.1:8000/examination_report/' + examination.id
         browser = await launch()
@@ -552,9 +562,10 @@ async def generate_pdf_report(examination):
     logger.info(file_path)
     await browser.close()
     #webdav
-    dir_name = examination.examination_date.strftime('%Y%m%d')
-    webdav_client.mkdir(f"/{dir_name}")
-    webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
+    # switch off web dav for the moment
+    #dir_name = examination.examination_date.strftime('%Y%m%d')
+    #webdav_client.mkdir(f"/{dir_name}")
+    #webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
     return url
 
 
