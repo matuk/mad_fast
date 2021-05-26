@@ -30,7 +30,7 @@ from webdav3.client import Client
 
 SECRET_KEY = "cd492135aa1dbb8cbc7caa5353be6a37fa4f12ab4a1f6be15f278e2bb419ac98"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 240
 
 
 fake_users_db = {
@@ -697,6 +697,7 @@ async def start_examination(id: str, response: Response, request: Request):
             # Hier alle Informationen kopieren
             examination.premedication.patient_height = last_examination.premedication.patient_height
             examination.premedication.patient_weight = last_examination.premedication.patient_weight
+            examination.premedication.patient_bmi = last_examination.premedication.patient_bmi
             examination.premedication.has_allergies = last_examination.premedication.has_allergies
             examination.premedication.allergies = last_examination.premedication.allergies
             examination.premedication.asa_class = last_examination.premedication.asa_class
