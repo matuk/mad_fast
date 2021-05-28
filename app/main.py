@@ -745,7 +745,7 @@ async def read_examinations_with_filter(
     if state:
         query.update({'state': state})
     else:
-        query.update({'state': {'$in': ['planned', 'started']}})
+        query.update({'state': {'$in': ['planned', 'started', 'anesthesia-running', 'intervention-running']}})
     if planned_date:
         planned_date = dt.datetime.combine(planned_date, dt.time.min)
         query.update({'planned_examination_date': planned_date})
@@ -798,8 +798,20 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
     examination.id = id
     if examination.examination_date is not None: 
         examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    if examination.anesthesia.start_anesthesia_ts is not None: 
+        examination.anesthesia.start_anesthesia_ts = examination.anesthesia.start_anesthesia_ts.replace(tzinfo=pytz.UTC)
+    if examination.anesthesia.stop_anesthesia_ts is not None: 
+        examination.anesthesia.stop_anesthesia_ts = examination.anesthesia.stop_anesthesia_ts.replace(tzinfo=pytz.UTC)
+    if examination.anesthesia.start_intervention_ts is not None: 
+        examination.anesthesia.start_intervention_ts = examination.anesthesia.start_intervention_ts.replace(tzinfo=pytz.UTC)
+    if examination.anesthesia.stop_intervention_ts is not None: 
+        examination.anesthesia.stop_intervention_ts = examination.anesthesia.stop_intervention_ts.replace(tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
-        item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
+        if item.time_stamp is not None:
+            item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
+    for item in examination.anesthesia.vitals:
+        if item.time_stamp is not None:
+            item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
 
 
