@@ -884,6 +884,11 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex_types.extend(['Gastroskopie', 'Kolonoskopie'])
     elif (ex['Terminvorgaben'] == 'Rekto'):
         ex_types.append('Rektoskopie')
+    elif (ex['Terminvorgaben'] == 'Infusionstherapie'):
+        ex_types.append('Infusionstherapie')
+    elif (ex['Terminvorgaben'] == 'Bravokapsel mit Gastro'):
+        ex_types.append('Bravokapsel mit Gastroskopie')
+    
     new_ex['examination_types'] = ex_types
     new_ex.update({'health_insurance': ex['Krankenkasse']})
     return new_ex
@@ -938,7 +943,7 @@ async def upload_file(file: UploadFile = File(...)):
         for c in df.columns:
             df = df.rename(columns={c: c.strip()})
         for _, ex in df.iterrows():
-            if (ex.Terminvorgaben in ['Kolo', 'Gastro', 'Doppeldecker', 'Rekto']):
+            if (ex.Terminvorgaben in ['Kolo', 'Gastro', 'Doppeldecker', 'Rekto', 'Infusionstherapie', 'Bravokapsel mit Gastro']):
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
                     patient.date_of_birth_str, '%d.%m.%Y')
