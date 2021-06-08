@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MAD2 Anästhesieprotokoll</title>
     <link href="{{ url_for('static', path='/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='/mad_style.css') }}" rel="stylesheet">
 </head>
 <body>
     <div class="container my-3">
@@ -75,10 +76,12 @@
                             <strong>Neuronale Erkrankungen:</strong>
                             {{ ', '.join(examination.premedication.neuro_diseases) or 'Keine'}}
                         </p>
-                        <p class="card-text">
+                        <p class="mb-0 card-text">
                             <strong>Kommentar:</strong>
-                            {{ examination.premedication.comment or 'Kein Eintrag'}}
                         </p>
+                        <span class="mb-0 linebreak">{{
+                            examination.premedication.comment or 'Kein Eintrag'
+                          }}</span>
                     </div>
                 </div>
             </div>
