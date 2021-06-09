@@ -659,7 +659,8 @@ async def update_examination(id: str, examination: Examination, response: Respon
     examination.id = id
     examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
-        item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
+        if item.time_stamp:
+            item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
 
 @app.put("/examinations/{id}/start", status_code=status.HTTP_200_OK)
