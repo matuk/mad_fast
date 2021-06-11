@@ -1090,6 +1090,38 @@ async def get_archived_reports():
     logger.info(files_list)
     return files_list
 
+@app.get("/get_archived_reports_filter")
+async def get_archived_reports_with_filter(
+    examination_date: str = None,
+    pid: str = None,
+    lastname: str = None,
+    firstname: str = None,
+    dob: str = None):
+    logger.info('getArchivedReportsWithFilter')
+    logger.info(f'lastnamePattern: {lastname}')
+    logger.info(f'firstnamePattern: {firstname}')
+    logger.info(f'dobPattern: {dob}')
+    #pattern = '../pdf_archive/*_Vutuer_*.pdf'
+    pattern = '../pdf_archive/*'
+    if examination_date:
+        pattern += f'_{examination_date}*'
+    if pid:
+        pattern += f'_{pid}*'
+    if lastname:
+        pattern += f'_{lastname}*'
+    if firstname:
+        pattern += f'_{firstname}*'
+    if dob:
+        pattern += f'_{dob}*'
+    pattern+='.pdf'
+    logger.info(f'pattern: {pattern}')
+    files = glob.glob(pattern)
+    #files = [os.path.basename(x) for x in glob.glob(pattern)]
+    logger.info(files)
+    files_list = [{'filename': os.path.basename(file)} for file in files]
+    logger.info(files_list)
+    return files_list
+
 @app.get("/get_archived_report/{filename}")
 async def get_archived_report(filename: str):
     logger.info(filename)
