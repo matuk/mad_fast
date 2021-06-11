@@ -221,21 +221,21 @@ client = AsyncIOMotorClient(uri)
 db = client['madDB']
 
 # WebDAV
-dav_service = os.environ.get('DAV_SERVICE')
-dav_port = os.environ.get('DAV_PORT')
-dav_hostname = "http://%s:%s" % (
-    quote_plus(dav_service), dav_port)
+# dav_service = os.environ.get('DAV_SERVICE')
+# dav_port = os.environ.get('DAV_PORT')
+# dav_hostname = "http://%s:%s" % (
+#     quote_plus(dav_service), dav_port)
 
-logger.info(f'WebDAV: {dav_hostname}')
+# logger.info(f'WebDAV: {dav_hostname}')
 
-webdav_options = {
- 'webdav_hostname': dav_hostname,
- 'webdav_login': os.environ.get('DAV_USER'),
- 'webdav_password': os.environ.get('DAV_PASSWORD')
-}
+# webdav_options = {
+#  'webdav_hostname': dav_hostname,
+#  'webdav_login': os.environ.get('DAV_USER'),
+#  'webdav_password': os.environ.get('DAV_PASSWORD')
+# }
 
-webdav_client = Client(webdav_options)
-webdav_client.verify = False # To not check SSL certificates (Default = True)
+# webdav_client = Client(webdav_options)
+# webdav_client.verify = False # To not check SSL certificates (Default = True)
 
 # Models
 
@@ -481,7 +481,7 @@ async def deleate_user(id: str, status_code=status.HTTP_200_OK):
 @app.get("/optionsnurse", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
 async def get_users_select_nurse():
     users: List[UserSelect] = []
-    users_list = db.users.find({'job_title': 'Pflege'})
+    users_list = db.users.find({'job_title': 'nurse'})
     async for row in users_list:
         user = UserSelect(**row)
         if user.display_in_select:
@@ -491,7 +491,7 @@ async def get_users_select_nurse():
 @app.get("/optionsana", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
 async def get_users_select_ana():
     users: List[UserSelect] = []
-    users_list = db.users.find({'job_title': 'Arzt'})
+    users_list = db.users.find({'job_title': 'md'})
     async for row in users_list:
         user = UserSelect(**row)
         if user.display_in_select:
