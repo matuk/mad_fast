@@ -521,7 +521,10 @@ async def generate_examination_report(request: Request, id: str):
     examination_doc = await db.examinations.find_one({'_id': object_id})
     utc_tz = pytz.timezone('UTC')
     local_tz = pytz.timezone(examination_doc['tz_info'])
-    items = [ {'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']} for item in examination_doc['anesthesia']['doc_items'] ]
+    # items = [ {'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']} for item in examination_doc['anesthesia']['doc_items'] ]
+    items = [ {'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']}
+        for item in examination_doc['anesthesia']['doc_items']
+        if item['time_stamp'] is not None ]
     examination_doc['anesthesia']['doc_items'] = items
     examination = Examination(**examination_doc)
     examination.id = id
