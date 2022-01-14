@@ -71,16 +71,18 @@ class User(BaseModel):
     in_select_ana: Optional[bool] = False
     in_select_nurse: Optional[bool] = False
 
+
 class UserIn(User):
     id: Optional[str] = None
-    
+
 
 class UserOut(User):
     id: Optional[str] = None
-    
+
 
 class UserInDB(User):
     hashed_password: str
+
 
 class UserSelect(BaseModel):
     username: str = Field(None, alias='value')
@@ -109,6 +111,7 @@ def get_user(db, username: str):
         user_dict = db[username]
         return UserInDB(**user_dict)
 
+
 async def get_user_db(username: str):
     user_db_dict = await db.users.find_one({'username': username})
     if user_db_dict:
@@ -125,6 +128,7 @@ def authenticate_user(db, username: str, password: str):
     if not verify_password(password, user.hashed_password):
         return False
     return user
+
 
 async def authenticate_user_db(username: str, password: str):
     user = await get_user_db(username)
@@ -172,7 +176,6 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
     return current_user
-
 
 
 # FastAPI
@@ -251,6 +254,7 @@ class Patient(BaseModel):
     health_insurance: str = None
     asa_class: int = None
 
+
 class MDIntervention(BaseModel):
     id: str = None
     name: str = None
@@ -263,13 +267,16 @@ class Vital(BaseModel):
     value: float
     unit: str
 
+
 class PatientHeight(BaseModel):
     value: int = None
     unit: str = None
 
+
 class PatientWeight(BaseModel):
     value: int = None
     unit: str = None
+
 
 class DocItem(BaseModel):
     time_stamp: dt.datetime = None
@@ -338,12 +345,6 @@ class Examination(BaseModel):
     premedication: Premedication = Premedication()
     anesthesia: Anesthesia = Anesthesia()
     postmedication: Postmedication = Postmedication()
-    
-
-
-
-    
-
 
 
 # Routes
@@ -353,6 +354,8 @@ def read_root():
     return {"Hello": "MAD"}
 
 # @app.post("/token", response_model=Token) #Damit kann ich die response einschränken, damit nur das Token-Objekt zurückgeliefert wird.
+
+
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     #user = authenticate_user(fake_users_db, form_data.username, form_data.password)
@@ -370,7 +373,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User is disabled", headers={"WWW-Authenticate": "Bearer"})
     access_token_expires = dt.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token( data={"sub": user.username}, expires_delta=access_token_expires)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer", "expires_in": access_token_expires, "user": user}
 
 
@@ -378,9 +382,11 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
+
 @app.get("/users/me/items/")
 async def read_own_items(current_user: User = Security(get_current_active_user, scopes=['items'])):
     return [{"item_id": "Foo", "owner": current_user.username}]
+
 
 @app.get("/users", status_code=status.HTTP_200_OK, response_model=List[UserOut])
 async def get_users():
@@ -391,6 +397,7 @@ async def get_users():
         user.id = str(row["_id"])
         users.append(user)
     return users
+
 
 @app.get("/users/{id}")
 async def get_user_from_db(id: str, status_code=status.HTTP_200_OK, response_model=UserOut):
@@ -408,6 +415,7 @@ async def get_user_from_db(id: str, status_code=status.HTTP_200_OK, response_mod
     user_out.id = id
     return user_out
 
+
 @app.get("/users/byname/{username}")
 async def get_user_byname(username: str, status_code=status.HTTP_200_OK, response_model=UserOut):
     user_db_dict = await db.users.find_one({'username': username})
@@ -419,16 +427,18 @@ async def get_user_byname(username: str, status_code=status.HTTP_200_OK, respons
     user_out.id = str(user_db_dict['_id'])
     return user_out
 
+
 @app.get("/users/isunique/{username}")
 async def check_username_unique(username: str, status_code=status.HTTP_200_OK):
     user_db_dict = await db.users.find_one({'username': username})
     return (user_db_dict == None)
 
+
 @app.get("/users/notme/{username}")
 async def check_username_isnotme(username: str, status_code=status.HTTP_200_OK):
     logger.info(username)
     return (username != "matuk")
-    
+
 
 async def upsert_user(query: dict, user_doc: dict):
     result = await db.users.find_one_and_update(
@@ -438,37 +448,46 @@ async def upsert_user(query: dict, user_doc: dict):
         return_document=ReturnDocument.AFTER)
     return result
 
+
 @app.post("/users", status_code=status.HTTP_201_CREATED, response_model=UserOut)
 async def create_user(user_in: UserIn, response: Response, request: Request):
     user_in_dict = user_in.dict()
     _ = user_in_dict.pop('id', None)
     #user_doc['hashed_password'] = get_password_hash(user_in.password)
-    user_db = UserInDB(**user_in_dict, hashed_password = get_password_hash(user_in.password))
+    user_db = UserInDB(
+        **user_in_dict, hashed_password=get_password_hash(user_in.password))
     user_identifier = user_in.dict(include={'username'})
     user_updated = await upsert_user(user_identifier, user_db.dict())
     user_updated['id'] = str(user_updated['_id'])
-    response.headers.update({"location": str(request.url) + str(user_updated['_id'])})
+    response.headers.update(
+        {"location": str(request.url) + str(user_updated['_id'])})
     return user_updated
+
 
 @app.post("/useradmin", status_code=status.HTTP_201_CREATED, response_model=UserOut)
 async def create_admin(response: Response, request: Request):
     user_dict = {'username': 'admin', 'password': 'admin', 'is_admin': True}
-    user_db = UserInDB(**user_dict, hashed_password = get_password_hash(user_dict['password']))
+    user_db = UserInDB(
+        **user_dict, hashed_password=get_password_hash(user_dict['password']))
     user_identifier = {'username': 'admin'}
     user_updated = await upsert_user(user_identifier, user_db.dict())
     user_updated['id'] = str(user_updated['_id'])
-    response.headers.update({"location": str(request.url) + str(user_updated['_id'])})
+    response.headers.update(
+        {"location": str(request.url) + str(user_updated['_id'])})
     return user_updated
 
-@app.put("/users/{id}", status_code=status.HTTP_200_OK, response_model=UserOut  )
+
+@app.put("/users/{id}", status_code=status.HTTP_200_OK, response_model=UserOut)
 async def update_user(id: str, user_in: UserIn, response: Response, request: Request):
     user_in_dict = user_in.dict()
     _ = user_in_dict.pop('id', None)
-    user_db = UserInDB(**user_in_dict, hashed_password = get_password_hash(user_in.password)) 
+    user_db = UserInDB(
+        **user_in_dict, hashed_password=get_password_hash(user_in.password))
     user_identifier = user_in.dict(include={'username'})
     user_updated = await upsert_user(user_identifier, user_db.dict())
     user_updated['id'] = str(user_updated['_id'])
-    response.headers.update({"location": str(request.url) + str(user_updated['_id'])})
+    response.headers.update(
+        {"location": str(request.url) + str(user_updated['_id'])})
     return user_updated
 
 
@@ -488,6 +507,7 @@ async def get_users_select_nurse():
             users.append(user)
     return users
 
+
 @app.get("/optionsana", status_code=status.HTTP_200_OK, response_model=List[UserSelect])
 async def get_users_select_ana():
     users: List[UserSelect] = []
@@ -502,7 +522,9 @@ async def get_users_select_ana():
 def get_mad_report_filename(examination):
     file_name = "Anaesthesieprotokoll_"
     file_name = file_name.strip() + examination.examination_date.strftime('%Y%m%d_%H%M')
-    file_name = file_name.strip() + '_' + examination.aesqulap_pid.strip() + '_' + examination.last_name.strip() + '_' + examination.first_name.strip() + '_' + examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
+    file_name = file_name.strip() + '_' + examination.aesqulap_pid.strip() + '_' + examination.last_name.strip() + \
+        '_' + examination.first_name.strip() + '_' + \
+        examination.date_of_birth.strftime("%d-%m-%Y") + '.pdf'
     return file_name
 
 # def get_template(template_name: str):
@@ -510,6 +532,7 @@ def get_mad_report_filename(examination):
 #     templates_dir = os.path.join(root, 'templates')
 #     env = Environment( loader=FileSystemLoader(templates_dir) )
 #     return env.get_template(template_name)
+
 
 @app.get("/examination_report/{id}")
 async def generate_examination_report(request: Request, id: str):
@@ -522,17 +545,15 @@ async def generate_examination_report(request: Request, id: str):
     utc_tz = pytz.timezone('UTC')
     local_tz = pytz.timezone(examination_doc['tz_info'])
     # items = [ {'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']} for item in examination_doc['anesthesia']['doc_items'] ]
-    items = [ {'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']}
-        for item in examination_doc['anesthesia']['doc_items']
-        if item['time_stamp'] is not None ]
+    items = [{'time_stamp': utc_tz.localize(item['time_stamp']).astimezone(local_tz), 'text': item['text']}
+             for item in examination_doc['anesthesia']['doc_items']
+             if item['time_stamp'] is not None]
     examination_doc['anesthesia']['doc_items'] = items
     examination = Examination(**examination_doc)
     examination.id = id
     return templates.TemplateResponse("index.html", {"request": request, "examination": examination})
-    
-    
-    
-    
+
+
 @app.put("/examinations/generate_pdf/{id}")
 async def generate_pdf_api(request: Request, id: str):
     try:
@@ -545,13 +566,14 @@ async def generate_pdf_api(request: Request, id: str):
     examination.id = id
     _ = await generate_pdf_report(examination)
     return "Success"
- 
+
+
 async def generate_pdf_report(examination):
     logger.info('MK: Browserpath: ' + str(browser_path))
-    if browser_path == None: # Local dev environment on mac
+    if browser_path == None:  # Local dev environment on mac
         url = 'http://127.0.0.1:8000/examination_report/' + examination.id
         browser = await launch()
-    else: # all docker environments with env variable BROWSER_PATH
+    else:  # all docker environments with env variable BROWSER_PATH
         url = 'http://127.0.0.1/examination_report/' + examination.id
         browser = await launch(executablePath=browser_path, headless=True, args=['--no-sandbox'])
     page = await browser.newPage()
@@ -564,14 +586,12 @@ async def generate_pdf_report(examination):
     logger.info('MK: Seiter gespeichert unter:')
     logger.info(file_path)
     await browser.close()
-    #webdav
+    # webdav
     # switch off web dav for the moment
     #dir_name = examination.examination_date.strftime('%Y%m%d')
-    #webdav_client.mkdir(f"/{dir_name}")
+    # webdav_client.mkdir(f"/{dir_name}")
     #webdav_client.upload_sync(remote_path=f"/{dir_name}/{file_name}", local_path=f"{file_path}")
     return url
-
-
 
 
 @app.get("/mdintervention")
@@ -581,7 +601,6 @@ async def read_mds_intervention():
     async for row in mds_docs:
         mds.append(row['name'])
     return mds
-
 
 
 @app.get("/patients", status_code=status.HTTP_200_OK)
@@ -660,11 +679,13 @@ async def update_examination(id: str, examination: Examination, response: Respon
     await db.examinations.replace_one({"_id": ObjectId(id)}, examination_doc)
     response.headers.update({"location": str(request.url)})
     examination.id = id
-    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    examination.examination_date = examination.examination_date.replace(
+        tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         if item.time_stamp:
             item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
     return examination
+
 
 @app.put("/examinations/{id}/start", status_code=status.HTTP_200_OK)
 async def start_examination(id: str, response: Response, request: Request):
@@ -681,7 +702,8 @@ async def start_examination(id: str, response: Response, request: Request):
     # set default values for newly started examination
     if examination.state == "planned":
         examination.state = "started"
-        examination.examination_date = dt.datetime.now(dt.timezone.utc)  # Jetzt inkl. Zeit
+        examination.examination_date = dt.datetime.now(
+            dt.timezone.utc)  # Jetzt inkl. Zeit
         #examination.patient_age = int((dt.datetime.combine(dt.datetime.now(), dt.time.min) - examination.date_of_birth).days // 365.2425)
         examination.postmedication.drink = True
         examination.postmedication.accompanied = True
@@ -691,9 +713,9 @@ async def start_examination(id: str, response: Response, request: Request):
         # try to find the last completed examination for same patient
         last_examination = None
         last_examination_cursor = db.examinations.find({
-                'aesqulap_pid': examination_doc['aesqulap_pid'],
-                'state': 'completed'
-                }).sort([('examination_date', -1)]).limit(1)
+            'aesqulap_pid': examination_doc['aesqulap_pid'],
+            'state': 'completed'
+        }).sort([('examination_date', -1)]).limit(1)
         async for doc in last_examination_cursor:
             last_examination = Examination(**doc)
         if last_examination:
@@ -712,7 +734,8 @@ async def start_examination(id: str, response: Response, request: Request):
             examination.premedication.neuro_diseases = last_examination.premedication.neuro_diseases
             examination.premedication.comment = last_examination.premedication.comment
             message['code'] = 'premed_copied'
-            date_loc = pytz.utc.localize(last_examination.examination_date).astimezone(pytz.timezone(last_examination.tz_info))
+            date_loc = pytz.utc.localize(last_examination.examination_date).astimezone(
+                pytz.timezone(last_examination.tz_info))
             message['text'] = f"Prämedikationsdaten kopiert von der Untersuchung vom {date_loc.strftime('%d.%m.%Y %H:%M')} für {examination.first_name} {examination.last_name}."
         else:
             logger.info('MKLog: Keine bestehende Examination gefunden.')
@@ -721,12 +744,13 @@ async def start_examination(id: str, response: Response, request: Request):
         # Update of examination in MongoDB
         updated_examination_doc = examination.dict()
         await db.examinations.replace_one({"_id": ObjectId(id)}, updated_examination_doc)
-    
-    if examination.examination_date is not None: 
-        examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+
+    if examination.examination_date is not None:
+        examination.examination_date = examination.examination_date.replace(
+            tzinfo=pytz.UTC)
     response.headers.update({"location": str(request.url)})
-   
-    return { 'examination': examination, 'message': message }
+
+    return {'examination': examination, 'message': message}
 
 
 @app.get("/examinations", status_code=status.HTTP_200_OK)
@@ -749,7 +773,8 @@ async def read_examinations_with_filter(
     if state:
         query.update({'state': state})
     else:
-        query.update({'state': {'$in': ['planned', 'started', 'anesthesia-running', 'intervention-running']}})
+        query.update({'state': {
+                     '$in': ['planned', 'started', 'anesthesia-running', 'intervention-running']}})
     if planned_date:
         planned_date = dt.datetime.combine(planned_date, dt.time.min)
         query.update({'planned_examination_date': planned_date})
@@ -760,12 +785,14 @@ async def read_examinations_with_filter(
     examination_docs = db.examinations.find(query)
     async for row in examination_docs:
         try:
-            examination = Examination(**row)  
+            examination = Examination(**row)
             examination.id = str(row["_id"])
             examinations.append(examination)
         except:
-            logger.warning(f"Examination for patient {row.get('aesqulap_pid')} cannot be validated.")
+            logger.warning(
+                f"Examination for patient {row.get('aesqulap_pid')} cannot be validated.")
     return examinations
+
 
 @app.get("/planned_examinations", status_code=status.HTTP_200_OK)
 async def read_planned_examinations(planned_date: str = None):
@@ -775,20 +802,24 @@ async def read_planned_examinations(planned_date: str = None):
         try:
             planned_date_dt = dt.datetime.strptime(planned_date, '%Y-%m-%d')
         except:
-            planned_date_dt = dt.datetime.combine(dt.datetime.now(), dt.time.min) # today as default
+            planned_date_dt = dt.datetime.combine(
+                dt.datetime.now(), dt.time.min)  # today as default
     else:
-        planned_date_dt = dt.datetime.combine(dt.datetime.now(), dt.time.min) # today as default
+        planned_date_dt = dt.datetime.combine(
+            dt.datetime.now(), dt.time.min)  # today as default
     query.update({'planned_examination_date': planned_date_dt})
     examinations: List[Examination] = []
     examination_docs = db.examinations.find(query)
     async for row in examination_docs:
         try:
-            examination = Examination(**row)  
+            examination = Examination(**row)
             examination.id = str(row["_id"])
             examinations.append(examination)
         except:
-            logger.warning(f"Examination for patient {row.get('aesqulap_pid')} cannot be validated.")
+            logger.warning(
+                f"Examination for patient {row.get('aesqulap_pid')} cannot be validated.")
     return examinations
+
 
 @app.get("/examinations/{id}")
 async def read_examination(id: str, status_code=status.HTTP_200_OK):
@@ -800,16 +831,21 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
     examination_doc = await db.examinations.find_one({'_id': object_id})
     examination = Examination(**examination_doc)
     examination.id = id
-    if examination.examination_date is not None: 
-        examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
-    if examination.anesthesia.start_anesthesia_ts is not None: 
-        examination.anesthesia.start_anesthesia_ts = examination.anesthesia.start_anesthesia_ts.replace(tzinfo=pytz.UTC)
-    if examination.anesthesia.stop_anesthesia_ts is not None: 
-        examination.anesthesia.stop_anesthesia_ts = examination.anesthesia.stop_anesthesia_ts.replace(tzinfo=pytz.UTC)
-    if examination.anesthesia.start_intervention_ts is not None: 
-        examination.anesthesia.start_intervention_ts = examination.anesthesia.start_intervention_ts.replace(tzinfo=pytz.UTC)
-    if examination.anesthesia.stop_intervention_ts is not None: 
-        examination.anesthesia.stop_intervention_ts = examination.anesthesia.stop_intervention_ts.replace(tzinfo=pytz.UTC)
+    if examination.examination_date is not None:
+        examination.examination_date = examination.examination_date.replace(
+            tzinfo=pytz.UTC)
+    if examination.anesthesia.start_anesthesia_ts is not None:
+        examination.anesthesia.start_anesthesia_ts = examination.anesthesia.start_anesthesia_ts.replace(
+            tzinfo=pytz.UTC)
+    if examination.anesthesia.stop_anesthesia_ts is not None:
+        examination.anesthesia.stop_anesthesia_ts = examination.anesthesia.stop_anesthesia_ts.replace(
+            tzinfo=pytz.UTC)
+    if examination.anesthesia.start_intervention_ts is not None:
+        examination.anesthesia.start_intervention_ts = examination.anesthesia.start_intervention_ts.replace(
+            tzinfo=pytz.UTC)
+    if examination.anesthesia.stop_intervention_ts is not None:
+        examination.anesthesia.stop_intervention_ts = examination.anesthesia.stop_intervention_ts.replace(
+            tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         if item.time_stamp is not None:
             item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
@@ -892,7 +928,9 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex_types.append('Infusionstherapie')
     elif (ex['Terminvorgaben'] == 'Bravokapsel mit Gastro'):
         ex_types.append('Bravokapsel mit Gastroskopie')
-    
+    elif (ex['Terminvorgaben'] == 'Proktologie'):
+        ex_types.append('Proktologie')
+
     new_ex['examination_types'] = ex_types
     new_ex.update({'health_insurance': ex['Krankenkasse']})
     return new_ex
@@ -911,6 +949,7 @@ async def upsert_patient(query: dict, patient_doc: dict):
         return_document=ReturnDocument.AFTER)
     return result
 
+
 async def upsert_md_intervention(query: dict, md_intervention_doc: dict):
     result = await db.mdintervention.find_one_and_update(
         filter=query,
@@ -918,6 +957,7 @@ async def upsert_md_intervention(query: dict, md_intervention_doc: dict):
         upsert=True,
         return_document=ReturnDocument.AFTER)
     return result
+
 
 async def upsert_examination(query: dict, examination_doc: dict):
     result = await db.examinations.find_one_and_update(
@@ -947,7 +987,7 @@ async def upload_file(file: UploadFile = File(...)):
         for c in df.columns:
             df = df.rename(columns={c: c.strip()})
         for _, ex in df.iterrows():
-            if (ex.Terminvorgaben in ['Kolo', 'Gastro', 'Doppeldecker', 'Rekto', 'Infusionstherapie', 'Bravokapsel mit Gastro']):
+            if (ex.Terminvorgaben in ['Kolo', 'Gastro', 'Doppeldecker', 'Rekto', 'Infusionstherapie', 'Bravokapsel mit Gastro', 'Proktologie']):
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
                     patient.date_of_birth_str, '%d.%m.%Y')
@@ -976,6 +1016,7 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=422, detail="csv file cannot be imported")
 
+
 @app.post("/upload_users")
 async def upload_users(file: UploadFile = File(...)):
     data = await file.read()
@@ -987,7 +1028,8 @@ async def upload_users(file: UploadFile = File(...)):
         for c in df.columns:
             df = df.rename(columns={c: c.strip()})
         for _, user_dict in df.iterrows():
-            user_db = UserInDB(**user_dict, hashed_password = get_password_hash(user_dict['password']))
+            user_db = UserInDB(
+                **user_dict, hashed_password=get_password_hash(user_dict['password']))
             user_identifier = {'username': user_dict['username']}
             _ = await upsert_user(user_identifier, user_db.dict())
         return 'Users created'
@@ -1006,6 +1048,7 @@ class MKDateTest(BaseModel):
             dt.datetime: lambda v: v.isoformat()[:-3]+'Z'
         }
 
+
 @app.post("/datetest")
 async def set_date(mk_datetest: MKDateTest, response: Response, request: Request):
     logger.info('Test Date: %s', mk_datetest)
@@ -1013,13 +1056,15 @@ async def set_date(mk_datetest: MKDateTest, response: Response, request: Request
     logger.info('Test Date: %s', datetest)
     result = await db.datetest.replace_one({"id": mk_datetest.id}, datetest, upsert=True)
     # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
-    response.headers.update({"location": str(request.url) + str(result.upserted_id)})
+    response.headers.update(
+        {"location": str(request.url) + str(result.upserted_id)})
     logger.info('Result: %s', result)
     logger.info('Raw_Result: %s', result.raw_result)
     result = await db.datetest.find_one({"id": mk_datetest.id})
     datetest_check = MKDateTest(**result)
     logger.info('datatest check: %s', datetest_check)
     return datetest_check
+
 
 @app.get("/datetest/{id}")
 async def get_date(response: Response, request: Request, id: str):
@@ -1067,6 +1112,7 @@ async def set_dates(response: Response, request: Request):
 
     return "success"
 
+
 @app.get("/sleep", status_code=status.HTTP_200_OK)
 def sleep(delta: int, response: Response, request: Request):
     time.sleep(delta)
@@ -1093,13 +1139,14 @@ async def get_archived_reports():
     logger.info(files_list)
     return files_list
 
+
 @app.get("/get_archived_reports_filter")
 async def get_archived_reports_with_filter(
-    examination_date: str = None,
-    pid: str = None,
-    lastname: str = None,
-    firstname: str = None,
-    dob: str = None):
+        examination_date: str = None,
+        pid: str = None,
+        lastname: str = None,
+        firstname: str = None,
+        dob: str = None):
     logger.info('getArchivedReportsWithFilter')
     logger.info(f'lastnamePattern: {lastname}')
     logger.info(f'firstnamePattern: {firstname}')
@@ -1116,7 +1163,7 @@ async def get_archived_reports_with_filter(
         pattern += f'_{firstname}*'
     if dob:
         pattern += f'_{dob}*'
-    pattern+='.pdf'
+    pattern += '.pdf'
     logger.info(f'pattern: {pattern}')
     files = glob.glob(pattern)
     #files = [os.path.basename(x) for x in glob.glob(pattern)]
@@ -1125,12 +1172,14 @@ async def get_archived_reports_with_filter(
     logger.info(files_list)
     return files_list
 
+
 @app.get("/get_archived_report/{filename}")
 async def get_archived_report(filename: str):
     logger.info(filename)
     filepath = os.path.join('../pdf_archive/', filename)
     logger.info(filepath)
     return FileResponse(filepath)
+
 
 @app.get("/testfile")
 async def testfile():
