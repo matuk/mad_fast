@@ -1055,6 +1055,8 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex_types.append("Bravokapsel mit Gastroskopie")
     elif ex["Terminvorgaben"] == "Proktologie":
         ex_types.append("Proktologie")
+    elif ex["Terminvorgaben"] == "Chirurgische Eingriffe":
+        ex_types.append("Chirurgische Eingriffe")
 
     new_ex["examination_types"] = ex_types
     new_ex.update({"health_insurance": ex["Krankenkasse"]})
@@ -1127,6 +1129,7 @@ async def upload_file(file: UploadFile = File(...)):
                 "Infusionstherapie",
                 "Bravokapsel mit Gastro",
                 "Proktologie",
+                "Chirurgische Eingriffe",
             ]:
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
@@ -1152,9 +1155,26 @@ async def upload_file(file: UploadFile = File(...)):
                 )
                 examination_data = examination.dict(exclude={"id"})
                 logger.info("Examination update: %s", examination_data)
-                _ = await upsert_examination(examination_identifier, examination_data)
-                count.setdefault(examination_data["planned_examination_date"], 0)
-                count[examination_data["planned_examination_date"]] += 1
+                # hier prüfen, ob die Untersuchung schon läuft mit examination identifier
+
+                # try to find the last completed examination for same patient
+                existing_examination = None
+                existing_examination_cursor = db.examinations.find(
+                    examination_identifier
+                ).limit(1)
+                async for doc in existing_examination_cursor:
+                    existing_examination = Examination(**doc)
+                logger.info(
+                    "Existing examination for same day: %s", existing_examination
+                )
+                if (existing_examination == None) or (
+                    existing_examination.state == "planned"
+                ):
+                    _ = await upsert_examination(
+                        examination_identifier, examination_data
+                    )
+                    count.setdefault(examination_data["planned_examination_date"], 0)
+                    count[examination_data["planned_examination_date"]] += 1
         date_frequency, total_count = get_date_frequency_from_count(count)
         return {"Planned examinations": date_frequency, "Total count": total_count}
     except:
