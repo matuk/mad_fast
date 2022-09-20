@@ -502,7 +502,8 @@ async def create_user(user_in: UserIn, response: Response, request: Request):
     user_identifier = user_in.dict(include={"username"})
     user_updated = await upsert_user(user_identifier, user_db.dict())
     user_updated["id"] = str(user_updated["_id"])
-    response.headers.update({"location": str(request.url) + str(user_updated["_id"])})
+    response.headers.update(
+        {"location": str(request.url) + str(user_updated["_id"])})
     return user_updated
 
 
@@ -515,7 +516,8 @@ async def create_admin(response: Response, request: Request):
     user_identifier = {"username": "admin"}
     user_updated = await upsert_user(user_identifier, user_db.dict())
     user_updated["id"] = str(user_updated["_id"])
-    response.headers.update({"location": str(request.url) + str(user_updated["_id"])})
+    response.headers.update(
+        {"location": str(request.url) + str(user_updated["_id"])})
     return user_updated
 
 
@@ -529,7 +531,8 @@ async def update_user(id: str, user_in: UserIn, response: Response, request: Req
     user_identifier = user_in.dict(include={"username"})
     user_updated = await upsert_user(user_identifier, user_db.dict())
     user_updated["id"] = str(user_updated["_id"])
-    response.headers.update({"location": str(request.url) + str(user_updated["_id"])})
+    response.headers.update(
+        {"location": str(request.url) + str(user_updated["_id"])})
     return user_updated
 
 
@@ -696,7 +699,8 @@ async def create_patient(patient: Patient, response: Response, request: Request)
     )
     result = await db.patients.insert_one(patient_doc)
     patient.id = str(result.inserted_id)
-    response.headers.update({"location": str(request.url) + str(result.inserted_id)})
+    response.headers.update(
+        {"location": str(request.url) + str(result.inserted_id)})
     return patient
 
 
@@ -734,7 +738,8 @@ async def create_examination(
     result = await db.examinations.insert_one(examination_doc)
     examination.id = str(result.inserted_id)
     # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
-    response.headers.update({"location": str(request.url) + str(result.inserted_id)})
+    response.headers.update(
+        {"location": str(request.url) + str(result.inserted_id)})
     print("Examination Doc nach dem Aufruf von mongodb:")
     print(examination)
     return examination
@@ -750,7 +755,8 @@ async def update_examination(
     await db.examinations.replace_one({"_id": ObjectId(id)}, examination_doc)
     response.headers.update({"location": str(request.url)})
     examination.id = id
-    examination.examination_date = examination.examination_date.replace(tzinfo=pytz.UTC)
+    examination.examination_date = examination.examination_date.replace(
+        tzinfo=pytz.UTC)
     for item in examination.anesthesia.doc_items:
         if item.time_stamp:
             item.time_stamp = item.time_stamp.replace(tzinfo=pytz.UTC)
@@ -786,7 +792,8 @@ async def start_examination(id: str, response: Response, request: Request):
         last_examination = None
         last_examination_cursor = (
             db.examinations.find(
-                {"aesqulap_pid": examination_doc["aesqulap_pid"], "state": "completed"}
+                {"aesqulap_pid": examination_doc["aesqulap_pid"],
+                    "state": "completed"}
             )
             .sort([("examination_date", -1)])
             .limit(1)
@@ -963,11 +970,13 @@ async def read_examination(id: str, status_code=status.HTTP_200_OK):
         )
     if examination.anesthesia.start_intervention_ts is not None:
         examination.anesthesia.start_intervention_ts = (
-            examination.anesthesia.start_intervention_ts.replace(tzinfo=pytz.UTC)
+            examination.anesthesia.start_intervention_ts.replace(
+                tzinfo=pytz.UTC)
         )
     if examination.anesthesia.stop_intervention_ts is not None:
         examination.anesthesia.stop_intervention_ts = (
-            examination.anesthesia.stop_intervention_ts.replace(tzinfo=pytz.UTC)
+            examination.anesthesia.stop_intervention_ts.replace(
+                tzinfo=pytz.UTC)
         )
     for item in examination.anesthesia.doc_items:
         if item.time_stamp is not None:
@@ -1041,22 +1050,24 @@ def create_examination_from_csv(patient_id, ex: dict):
     # new_ex['postmedication']['informed'] = True
     # new_ex['postmedication']['contact_info'] = True
     ex_types = []
-    if ex["Terminvorgaben"] == "Gastro":
+    if ex["Terminvorgaben"].strip() == "Gastro":
         ex_types.append("Gastroskopie")
-    elif ex["Terminvorgaben"] == "Kolo":
+    elif ex["Terminvorgaben"].strip() == "Kolo":
         ex_types.append("Kolonoskopie")
-    elif ex["Terminvorgaben"] == "Doppeldecker":
+    elif ex["Terminvorgaben"].strip() == "Doppeldecker":
         ex_types.extend(["Gastroskopie", "Kolonoskopie"])
-    elif ex["Terminvorgaben"] == "Rekto":
+    elif ex["Terminvorgaben"].strip() == "Rekto":
         ex_types.append("Rektoskopie")
-    elif ex["Terminvorgaben"] == "Infusionstherapie":
+    elif ex["Terminvorgaben"].strip() == "Infusionstherapie":
         ex_types.append("Infusionstherapie")
-    elif ex["Terminvorgaben"] == "Bravokapsel mit Gastro":
+    elif ex["Terminvorgaben"].strip() == "Bravokapsel mit Gastro":
         ex_types.append("Bravokapsel mit Gastroskopie")
-    elif ex["Terminvorgaben"] == "Proktologie":
+    elif ex["Terminvorgaben"].strip() == "Proktologie":
         ex_types.append("Proktologie")
-    elif ex["Terminvorgaben"] == "Chirurgische Eingriffe":
+    elif ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe":
         ex_types.append("Chirurgische Eingriffe")
+    elif ex["Terminvorgaben"].strip() == "Darmkrebs-Screening Kanton Bern":
+        ex_types.append("Kolonoskopie DKS")
 
     new_ex["examination_types"] = ex_types
     new_ex.update({"health_insurance": ex["Krankenkasse"]})
@@ -1115,13 +1126,14 @@ async def upload_file(file: UploadFile = File(...)):
     data = await file.read()
     data_decoded = data.decode("iso-8859-1")
     try:
-        df = pd.read_csv(BytesIO(bytes(data_decoded, encoding="utf-8")), sep=";")
+        df = pd.read_csv(
+            BytesIO(bytes(data_decoded, encoding="utf-8")), sep=";")
         count = {}
         # delete leading and trailing white space in column names
         for c in df.columns:
             df = df.rename(columns={c: c.strip()})
         for _, ex in df.iterrows():
-            if ex.Terminvorgaben in [
+            if ex.Terminvorgaben.strip() in [
                 "Kolo",
                 "Gastro",
                 "Doppeldecker",
@@ -1130,6 +1142,7 @@ async def upload_file(file: UploadFile = File(...)):
                 "Bravokapsel mit Gastro",
                 "Proktologie",
                 "Chirurgische Eingriffe",
+                "Darmkrebs-Screening Kanton Bern",
             ]:
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
@@ -1173,12 +1186,14 @@ async def upload_file(file: UploadFile = File(...)):
                     _ = await upsert_examination(
                         examination_identifier, examination_data
                     )
-                    count.setdefault(examination_data["planned_examination_date"], 0)
+                    count.setdefault(
+                        examination_data["planned_examination_date"], 0)
                     count[examination_data["planned_examination_date"]] += 1
         date_frequency, total_count = get_date_frequency_from_count(count)
         return {"Planned examinations": date_frequency, "Total count": total_count}
     except:
-        raise HTTPException(status_code=422, detail="csv file cannot be imported")
+        raise HTTPException(
+            status_code=422, detail="csv file cannot be imported")
 
 
 @app.post("/upload_users")
@@ -1186,7 +1201,8 @@ async def upload_users(file: UploadFile = File(...)):
     data = await file.read()
     data_decoded = data.decode("iso-8859-1")
     try:
-        df = pd.read_csv(BytesIO(bytes(data_decoded, encoding="utf-8")), sep=",")
+        df = pd.read_csv(
+            BytesIO(bytes(data_decoded, encoding="utf-8")), sep=",")
         # delete leading and trailing white space in column names
         for c in df.columns:
             df = df.rename(columns={c: c.strip()})
@@ -1198,7 +1214,8 @@ async def upload_users(file: UploadFile = File(...)):
             _ = await upsert_user(user_identifier, user_db.dict())
         return "Users created"
     except:
-        raise HTTPException(status_code=422, detail="csv file cannot be imported")
+        raise HTTPException(
+            status_code=422, detail="csv file cannot be imported")
 
 
 class MKDateTest(BaseModel):
@@ -1219,7 +1236,8 @@ async def set_date(mk_datetest: MKDateTest, response: Response, request: Request
         {"id": mk_datetest.id}, datetest, upsert=True
     )
     # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
-    response.headers.update({"location": str(request.url) + str(result.upserted_id)})
+    response.headers.update(
+        {"location": str(request.url) + str(result.upserted_id)})
     logger.info("Result: %s", result)
     logger.info("Raw_Result: %s", result.raw_result)
     result = await db.datetest.find_one({"id": mk_datetest.id})
@@ -1250,10 +1268,12 @@ async def set_dates(response: Response, request: Request):
     # astimezone(pytz.timezone("Europe/Zurich")) --- damit kann man UTC nach Local konvertieren
     zurich = pytz.timezone("Europe/Zurich")
     aware_datetime = zurich.localize(dt.datetime.now())
-    d3 = {"id": "103", "ts": aware_datetime, "comment": "tz aware zurich / now()"}
+    d3 = {"id": "103", "ts": aware_datetime,
+          "comment": "tz aware zurich / now()"}
     _ = await db.datetest.replace_one({"id": d3["id"]}, d3, upsert=True)
     aware_datetime = zurich.localize(dt.datetime.utcnow())
-    d4 = {"id": "104", "ts": aware_datetime, "comment": "tz aware zurich / utcnow()"}
+    d4 = {"id": "104", "ts": aware_datetime,
+          "comment": "tz aware zurich / utcnow()"}
     _ = await db.datetest.replace_one({"id": d4["id"]}, d4, upsert=True)
 
     return "success"
