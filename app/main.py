@@ -433,6 +433,22 @@ async def get_users():
     return users
 
 
+@app.get("/users_filter/{filter}", status_code=status.HTTP_200_OK, response_model=List[UserOut])
+async def get_users_filter(filter: str):
+    users: List[UserOut] = []
+    query = {}
+    if filter == 'active':
+        query.update({"disabled": False})
+    elif filter == 'inactive':
+        query.update({"disabled": True})
+    users_list = db.users.find(query)
+    async for row in users_list:
+        user = UserOut(**row)
+        user.id = str(row["_id"])
+        users.append(user)
+    return users
+
+
 @app.get("/users/{id}")
 async def get_user_from_db(
     id: str, status_code=status.HTTP_200_OK, response_model=UserOut
