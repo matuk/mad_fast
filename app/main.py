@@ -1080,13 +1080,13 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex_types.append("Bravokapsel mit Gastroskopie")
     elif ex["Terminvorgaben"].strip() == "Proktologie":
         ex_types.append("Proktologie")
-    elif ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe" or ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe":
+    elif ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe" or ex["Terminvorgaben"].strip() == "Chirurgischer Kleineingriff":
         ex_types.append("Chirurgischer Kleineingriff")
     elif ex["Terminvorgaben"].strip() == "Darmkrebs-Screening Kanton Bern":
         ex_types.append("Kolonoskopie DKS")
     elif ex["Terminvorgaben"].strip() == "Proktologischer Eingriff nach Longo":
         ex_types.append("Proktologischer Eingriff nach Longo")
-    elif ''.join(filter(str.isalnum, ex["Terminvorgaben"])) == "SigmoRektoskopie":
+    elif ''.join(filter(str.isalnum, ex["Terminvorgaben"])) == "SigmoRekto":
         ex_types.append("Sigmo & Rektoskopie")
 
     new_ex["examination_types"] = ex_types
@@ -1165,7 +1165,7 @@ async def upload_file(file: UploadFile = File(...)):
                 "chirurgischerkleineingriff",
                 "darmkrebsscreeningkantonbern",
                 "proktologischereingriffnachlongo",
-                "sigmorektoskopie"
+                "sigmorekto"
             ]:
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
