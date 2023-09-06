@@ -1080,10 +1080,14 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex_types.append("Bravokapsel mit Gastroskopie")
     elif ex["Terminvorgaben"].strip() == "Proktologie":
         ex_types.append("Proktologie")
-    elif ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe":
-        ex_types.append("Chirurgische Eingriffe")
+    elif ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe" or ex["Terminvorgaben"].strip() == "Chirurgische Eingriffe":
+        ex_types.append("Chirurgischer Kleineingriff")
     elif ex["Terminvorgaben"].strip() == "Darmkrebs-Screening Kanton Bern":
         ex_types.append("Kolonoskopie DKS")
+    elif ex["Terminvorgaben"].strip() == "Proktologischer Eingriff nach Longo":
+        ex_types.append("Proktologischer Eingriff nach Longo")
+    elif ''.join(filter(str.isalnum, ex["Terminvorgaben"])) == "SigmoRektoskopie":
+        ex_types.append("Sigmo & Rektoskopie")
 
     new_ex["examination_types"] = ex_types
     new_ex.update({"health_insurance": ex["Krankenkasse"]})
@@ -1149,16 +1153,19 @@ async def upload_file(file: UploadFile = File(...)):
         for c in df.columns:
             df = df.rename(columns={c: c.strip()})
         for _, ex in df.iterrows():
-            if ex.Terminvorgaben.strip() in [
-                "Kolo",
-                "Gastro",
-                "Doppeldecker",
-                "Rekto",
-                "Infusionstherapie",
-                "Bravokapsel mit Gastro",
-                "Proktologie",
-                "Chirurgische Eingriffe",
-                "Darmkrebs-Screening Kanton Bern",
+            if ''.join(filter(str.isalnum, ex.Terminvorgaben)).lower() in [
+                "kolo",
+                "gastro",
+                "doppeldecker",
+                "rekto",
+                "infusionstherapie",
+                "bravokapselmitgastro",
+                "proktologie",
+                "chirurgischeeingriffe",
+                "chirurgischerkleineingriff",
+                "darmkrebsscreeningkantonbern",
+                "proktologischereingriffnachlongo",
+                "sigmorektoskopie"
             ]:
                 patient = PatientCSV(**ex.to_dict())
                 patient.date_of_birth = dt.datetime.strptime(
