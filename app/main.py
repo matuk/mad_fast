@@ -1086,8 +1086,11 @@ def create_examination_from_csv(patient_id, ex: dict):
         ex_types.append("Kolonoskopie DKS")
     elif ex["Terminvorgaben"].strip() == "Proktologischer Eingriff nach Longo":
         ex_types.append("Proktologischer Eingriff nach Longo")
+    elif ex["Terminvorgaben"].strip() == "Knochenmark":
+        ex_types.append("Knochenmarkspunktion")
     elif ''.join(filter(str.isalnum, ex["Terminvorgaben"])) == "SigmoRekto":
         ex_types.append("Sigmo & Rektoskopie")
+   
 
     new_ex["examination_types"] = ex_types
     new_ex.update({"health_insurance": ex["Krankenkasse"]})
@@ -1165,6 +1168,7 @@ async def upload_file(file: UploadFile = File(...)):
                 "chirurgischerkleineingriff",
                 "darmkrebsscreeningkantonbern",
                 "proktologischereingriffnachlongo",
+                "knochenmark",
                 "sigmorekto"
             ]:
                 patient = PatientCSV(**ex.to_dict())
