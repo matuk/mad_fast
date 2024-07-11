@@ -8,7 +8,7 @@ RUN pip install passlib[bcrypt]
 RUN pip install pyppeteer
 RUN pip install pytz
 RUN pip install aiofiles
-RUN pip install jinja2
+RUN pip install jinja2==3.0.3
 RUN pip install webdavclient3
 
 RUN curl -sSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
