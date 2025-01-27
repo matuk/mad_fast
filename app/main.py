@@ -583,7 +583,17 @@ async def get_users_select_ana():
 
 
 def get_mad_report_filename(examination):
-    file_name = "Anaesthesieprotokoll_"
+    
+    # examinationIsInfusionstherapie() {
+    #   return (this.examination.examination_types.includes("Infusionstherapie") &&
+    #     this.examination.examination_types.length == 1)
+    # },
+    
+    if (("Infusionstherapie" in examination.examination_types) and (len(examination.examination_types) == 1)):
+        file_name = "Infusionsprotokoll_"
+    else:
+        file_name = "Anaesthesieprotokoll_"
+    
     file_name = file_name.strip() + examination.examination_date.strftime("%Y%m%d_%H%M")
     file_name = (
         file_name.strip()
